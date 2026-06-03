@@ -65,6 +65,14 @@ PWA for a university case competition. Core features: push notifications, feedba
 - Hosting: Vercel (frontend only — not Firebase Hosting)
 - Backend: Firebase Cloud Functions (Node.js) → `firebase deploy --only functions`; requires Blaze plan
 - LLM: Vercel AI SDK with Claude + OpenAI keys as Cloud Function env vars
+- PWA: `vite-plugin-pwa` generates manifest + service worker
+
+---
+
+## Platform Constraints
+- No app store approval needed — PWAs install directly; only HTTPS + manifest + service worker required (all satisfied by stack)
+- iOS push requires **iOS 16.4+** and install via **Safari** (Share → Add to Home Screen); no auto-prompt, so build explicit in-app install instructions for iPhone users
+- Android: Chrome auto-prompts install; push works in-browser too
 
 ---
 
@@ -78,4 +86,15 @@ PWA for a university case competition. Core features: push notifications, feedba
 - [2026-06-03] Named roster pre-seeded via Firebase console — identity tied to specific individuals, not just teams
 - [2026-06-03] Feedback is always notification-triggered, never ambient; one question per notification max
 - [2026-06-03] Quiet notification toggle added — independent of acknowledgement/feedback toggles
+
+---
+
+## Next Steps (implementation not yet started)
+- Scaffold React + Vite project with `vite-plugin-pwa`
+- Set up Firebase project (Firestore + FCM), upgrade to Blaze plan
+- Define Firestore schema + security rules (lock down OC-only reads/writes)
+- Build onboarding flow (role → name → school selection)
+- Build admin panel (notification composer, Q&A manager, response views)
+- Wire up Cloud Functions (FCM send, LLM streaming with Claude/OpenAI fallback)
+- Add iOS install-instruction prompt to onboarding
 
