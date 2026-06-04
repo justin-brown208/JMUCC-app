@@ -1,2 +1,22 @@
+# Claude Code
 .claude/*
 CC-Session-Logs/*
+skills-lock.json
+
+# Dependencies
+node_modules
+
+# Build output
+app/dist
+app/dist-ssr
+functions/lib
+
+# Environment variables
+.env
+*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store

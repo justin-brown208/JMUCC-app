@@ -42,7 +42,7 @@ PWA for a university case competition. Core features: push notifications, feedba
 - At query time: Cloud Function fetches rulebook + all Q&A entries, passes as full context; system prompt instructs model to cite section headers and Q&A entries explicitly
 
 ### Notification
-- OC composes and sends; OC does not receive
+- OC composes and sends
 - Targeting: any combination of role(s) + division(s) + letter(s)
 - Each FCM token stores: `role`, `school`, `division` (1–6), `teamLetter` (A–D)
 - `division` and `teamLetter` are null until OC publishes the ceremony mapping
