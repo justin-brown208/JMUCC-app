@@ -1,8 +1,23 @@
+/* Solid fallback so the status-bar and home-indicator areas are never white,
+   even before the gradient layer paints or when overscrolling past the edges. */
+html {
+  background: #213957;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
+}
+
+/* Gradient on a fixed layer pinned to the viewport (not the document), so it
+   fills the whole screen on iOS standalone. Using it via ::before avoids
+   background-attachment: fixed, which iOS Safari doesn't reliably support. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background: linear-gradient(180deg, #213957 0%, #000 100%);
-  background-attachment: fixed;
 }
 
 #root {
