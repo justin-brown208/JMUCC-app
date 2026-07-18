@@ -1,0 +1,3 @@
+# Never commit the admin credential.
+service-account.json
+node_modules

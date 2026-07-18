@@ -46,21 +46,22 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - Not a chatbot — strictly single-turn: user types a natural-language question, backend returns highlighted source citations. No conversation, no history, no follow-up context.
 - Output is extracted text snippets quoted verbatim from the docs, with the matching words/phrases highlighted within each snippet — no generated/paraphrased/explanatory text from the model
 - Returns multiple ranked citations per query (not just one), since an answer may span more than one section
-- RAG: model selects only from 1–2 static PDFs (no dynamic/live-editable document, no OC-managed Q&A store)
+- RAG: model selects only from 2 static PDFs — the **rulebook** and a **FAQ** doc (no dynamic/live-editable document, no OC-managed Q&A store). Users can also open either PDF full-screen in a basic (off-the-shelf) viewer.
 - LLM: Claude (primary), OpenAI (fallback)
 - No streaming — the response is a small structured result (ranked citations), not long-form prose, so it's returned as one shot; fallback triggers if the primary model call fails
 - PDFs uploaded once by OC before the event via Firebase console — not a UI feature
 - At query time: Cloud Function fetches the static PDF content, passes as full context; system prompt instructs model to return only verbatim quoted spans with highlight offsets, ranked by relevance
 
 ### Calendar
-- Homepage features a Google Calendar-synced event schedule
+- Homepage features a Google Calendar-synced event schedule, presented as a **widget** (current/soonest event large, later events as smaller entries) — not a traditional month/week calendar view, and no separate calendar page
 - Calendars are split by role and by team letter (e.g. "Volunteer" calendar, "Team A" calendar) — team-letter calendars are shared across all divisions (4 total: A/B/C/D), not one per division
 - A user sees the calendar(s) matching their role plus, if their `school` is set, that school's team-letter calendar (resolved via the school lookup — applies to Delegates, Coaches, and Team Ambassadors alike)
 - Exact calendar source mechanism (public iCal feed vs API) still TBD — see Status & Next Steps
 
 ### Notification
 - OC composes and sends
-- Targeting: any combination of role(s) + division(s) + letter(s). Volunteer roles are targetable individually (e.g. "all Runners") via the role filter, with an "All volunteers" shortcut that ticks the 5 volunteer values.
+- Targeting: role(s) as the primary selector, then narrowed by filters — division(s), letter(s), and/or a single specific school. Volunteer roles are targetable individually (e.g. "all Runners") via the role filter, with an "All volunteers" shortcut that selects the 5 volunteer roles at once.
+- **School is a targetable filter** (send to one named school) — resolved at send time via the person's `school` field, still never denormalized onto the FCM token.
 - **FCM token stores only `{ personId, token, updatedAt }`** — no denormalized role/school/division/teamLetter. At send time the Cloud Function loads people + schools, resolves teams in memory, filters, and collects matching tokens.
 - Rationale: a token that cached `division` would go stale the moment OC corrected a school mapping. Resolving at send time means targeting is always correct by construction.
 - **Quiet toggle** — suppresses sound/vibration; notification appears in tray and app only
@@ -68,8 +69,8 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - **Open tracking** — each user's last home-page-open timestamp is recorded; OC sees, per notification, a high-level breakdown by group (e.g. "19/40 volunteers, 22/24 schools have opened the app since this was sent"), with drill-down to a named list per group on request
 
 ### Admin Panel
-- Section of the main app gated by the person's `isAdmin` flag (not by role)
-- Actions: send notifications (with quiet toggle), view open-tracking breakdown per notification
+- Section of the main app gated by the person's `isAdmin` flag (not by role) — a navigable area with its own internal nav, entered from Home
+- Sub-pages: **Compose Notification** (quiet toggle, roles-then-filters targeting) and **Message Tracking** (list of sent notifications → per-notification open-tracking breakdown with drill-down)
 
 ---
 
@@ -110,6 +111,10 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - [2026-07-15] Team Ambassadors carry a `school` value (meaning "the team I'm assigned to"), so they inherit division+letter through the same lookup as delegates/coaches — this removed the need for any per-person division/teamLetter fields
 - [2026-07-15] PINs are 6-digit, uniform for all roles (was 4) — with ~500 people, 4 digits meant ~5% of random guesses hit a live account (~20 tries to land on someone, admins included); 6 digits drops that to ~0.05%. Uniform length beats admin-only 6-digit: simpler to explain and distribute, same protection.
 - [2026-07-15] PIN auth via Cloud Function + Firebase custom token; roster never client-readable; attempts rate-limited. **Consequence: Cloud Functions gate the first feature, not just document search** — Blaze upgrade moved to the front of the build order.
+- [2026-07-17] School added as a notification target (send to one named school), resolved at send time — extends the earlier role+division+letter targeting; token still stores no denormalized fields
+- [2026-07-17] Notification title is a required pick from a fixed preset set (Message from OC / Reminder / Urgent), not free text; recipients chosen as roles-then-narrowing-filters; Send shows a plain-language confirmation of the audience
+- [2026-07-17] FAQ reintroduced as a second *static* PDF (not the old OC-managed live Q&A store) — document search now cites rulebook + FAQ; both also openable full-screen in an off-the-shelf PDF viewer
+- [2026-07-17] Calendar is a home-screen widget (next/current event prominent, later events smaller), not a full calendar view; PIN login persists permanently until logout
 
 ---
 
@@ -117,12 +122,14 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - `app/` — React + Vite + PWA frontend (deployed to Vercel); `vite-plugin-pwa` wired in `app/vite.config.ts`, PWA icons in place
 - `functions/` — Firebase Cloud Functions (Node.js/TypeScript; deployed via `firebase deploy --only functions`)
 - `firebase.json`, `firestore.rules`, `firestore.indexes.json`, `.firebaserc` — Firebase config at root
+- `PAGES.md` — per-page UI spec (8 screens: Registration, Home, Previous Messages, Rules Search, Rules Results, PDF Viewer, Admin › Compose, Admin › Tracking); the build-against reference for frontend work
+- **`SCHEMA.md` — the source of truth for the Firestore data model (6 collections: `people`, `schools`, `announcements`, `fcmTokens`, `appOpens`, `pinAttempts`) and their client access rules. ALWAYS consult it before touching Firestore, `firestore.rules`, or any Cloud Function, and update it in the SAME commit as any data-model change so it never drifts from `firestore.rules`.**
 - Single root `.gitignore` covers both subprojects (no per-directory gitignores)
 - Note: `app/` and `functions/` keep separate `package.json`/`tsconfig.json` — different runtimes (browser vs Node), intentional
 
 ## Status & Next Steps
-**Done:** Scaffold (React+Vite+PWA, Cloud Functions), single root `.gitignore`, PWA icons
-**Blocker:** Firebase Blaze upgrade — now gates the *first* feature, since PIN auth needs a Cloud Function to mint custom tokens. Nothing testable ships until this is done.
+**Done:** Scaffold (React+Vite+PWA, Cloud Functions), single root `.gitignore`, PWA icons, Blaze upgrade, DB created (Standard edition, `northamerica-northeast1`/Montreal), `firestore.rules` written+audited+**deployed live**, `SCHEMA.md` = data-model source of truth, `dev-seed/` seeding tooling built (deletable; run + purge instructions in `dev-seed/README.md`)
+**Next:** user runs the seed (needs `dev-seed/service-account.json` from console — see README), then build the PIN auth Cloud Function (step 4).
 **Open questions:**
 - Google Calendar sync mechanism — public iCal feed vs. Calendar API with OAuth; needs research before implementation
 - Vercel AI SDK was originally chosen for its streaming/React integration; document search no longer streams to the client, so a plain Anthropic/OpenAI SDK call from the Cloud Function may now be simpler — revisit when implementing

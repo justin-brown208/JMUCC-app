@@ -1,0 +1,14 @@
+{
+  "name": "jmucc-dev-seed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DEV ONLY throwaway seeding for JMUCC. Delete before go-live.",
+  "scripts": {
+    "seed": "node seed.mjs",
+    "purge": "node purge.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.6.0"
+  }
+}

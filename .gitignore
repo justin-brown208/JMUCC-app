@@ -15,6 +15,11 @@ functions/lib
 .env
 *.local
 
+# Service account keys — NEVER commit (dev-seed and anywhere else)
+service-account.json
+*-service-account.json
+**/serviceAccountKey.json
+
 # Logs
 *.log
 

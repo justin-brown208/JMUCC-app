@@ -1,18 +1,172 @@
-rules_version='2'
+rules_version = '2';
+
+// ===============================================================
+// JMUCC App — Firestore Security Rules
+// ===============================================================
+//
+// Source of truth for the data model: SCHEMA.md (keep in sync).
+//
+// Design principle: this app is backend-mediated. Cloud Functions use the
+// Admin SDK and BYPASS these rules entirely, so all sensitive work (PIN auth,
+// sending notifications, tracking) happens server-side. The client (phone app)
+// is locked out of nearly everything. A 6-digit PIN is the only credential.
+//
+// Client-facing surface is intentionally tiny:
+//   - reads:  schools (admins only), announcements (only if addressed to you)
+//   - writes: fcmTokens (your own device), appOpens (your own record)
+// Everything else is deny-all for clients.
+//
+// ---------------------------------------------------------------
+// Assumed Data Model
+// ---------------------------------------------------------------
+//
+// Collection: people           (NO client access — contains all PINs)
+//   Document ID: person's auth uid
+//   Fields: fullName string, role string, pin string(6),
+//           school string|null, isAdmin bool
+//
+// Collection: schools          (client: admin read only)
+//   Document ID: school id
+//   Fields: name string, division number|null, teamLetter string|null
+//
+// Collection: announcements    (client: read only if uid in recipientIds)
+//   Document ID: auto
+//   Fields: title string, body string, silent bool,
+//           sentAt timestamp, recipientIds list<string>
+//
+// Collection: fcmTokens        (client: write own device only)
+//   Document ID: client device id
+//   Fields: personId string(==uid), token string, updatedAt timestamp
+//
+// Collection: appOpens         (client: write own record only)
+//   Document ID: person's auth uid
+//   Fields: lastOpenedAt timestamp
+//
+// Collection: pinAttempts      (NO client access — anti-brute-force)
+//   Server-only.
+// ===============================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // -----------------------------------------------------------
+    // Helper functions
+    // -----------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // Admin status is read from the caller's own people doc. Security-rules
+    // get() can read documents the client itself cannot read, so this works
+    // even though `people` is fully client-locked. Only Functions/console
+    // ever set isAdmin, so it cannot be self-granted from the client.
+    function isAdmin() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/people/$(request.auth.uid))
+        && get(/databases/$(database)/documents/people/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // A timestamp the client is setting "now" (via serverTimestamp): must be a
+    // real timestamp at request time, not a value the client backdated/forged.
+    function isNow(ts) {
+      return ts is timestamp && ts == request.time;
+    }
+
+    // -----------------------------------------------------------
+    // Domain validators
+    // -----------------------------------------------------------
+
+    // fcmTokens: a device registration the client may write for ITSELF only.
+    function isValidFcmToken(data) {
+      return data.keys().hasOnly(['personId', 'token', 'updatedAt'])
+        && data.personId is string && data.personId == request.auth.uid
+        && data.token is string && data.token.size() > 0 && data.token.size() < 1000
+        && isNow(data.updatedAt);
+    }
+
+    // appOpens: a single "I opened Home" timestamp, for the caller's own doc.
+    function isValidAppOpen(data) {
+      return data.keys().hasOnly(['lastOpenedAt'])
+        && isNow(data.lastOpenedAt);
+    }
+
+    // -----------------------------------------------------------
+    // people — fully locked. No client read or write, ever.
+    // Contains every PIN (admins included). PIN matching happens only in the
+    // auth Cloud Function via the Admin SDK.
+    // -----------------------------------------------------------
+    match /people/{personId} {
+      allow read, write: if false;
+    }
+
+    // -----------------------------------------------------------
+    // schools — admins may read (notification composer dropdown).
+    // No client writes (console/Functions only).
+    // -----------------------------------------------------------
+    match /schools/{schoolId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------
+    // announcements — a person may read one only if addressed to them;
+    // admins may read all. Written by the send Function only.
+    //
+    // Client query MUST be: where('recipientIds', 'array-contains', <uid>)
+    // which this per-document rule permits.
+    // -----------------------------------------------------------
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated()
+        && (request.auth.uid in resource.data.recipientIds || isAdmin());
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------
+    // fcmTokens — a client may create/update a device registration for
+    // itself. No client reads (only the send Function reads tokens).
+    // No deletes from the client.
+    // -----------------------------------------------------------
+    match /fcmTokens/{deviceId} {
+      allow read: if false;
+      allow create: if isAuthenticated() && isValidFcmToken(request.resource.data);
+      // Update requires already owning the existing doc, so one user cannot
+      // overwrite another's device registration (push-hijack) even if they
+      // somehow learned its document id.
+      allow update: if isAuthenticated()
+        && resource.data.personId == request.auth.uid
+        && isValidFcmToken(request.resource.data);
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------
+    // appOpens — a client may write ONLY its own open-tracking record
+    // (document id must equal its uid). No client reads (only the admin
+    // tracking Function reads these). No deletes.
+    // -----------------------------------------------------------
+    match /appOpens/{personId} {
+      allow read: if false;
+      allow create, update: if isOwner(personId) && isValidAppOpen(request.resource.data);
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------
+    // pinAttempts — fully locked. Anti-brute-force bookkeeping written
+    // only by the auth Function (Admin SDK).
+    // -----------------------------------------------------------
+    match /pinAttempts/{attemptId} {
+      allow read, write: if false;
+    }
+
+    // -----------------------------------------------------------
+    // Catch-all: anything not matched above is denied.
+    // -----------------------------------------------------------
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 7, 4);
+      allow read, write: if false;
     }
   }
 }
