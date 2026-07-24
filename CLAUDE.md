@@ -25,7 +25,7 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - Auth: every individual gets their own **6-digit PIN**, pre-assigned in the roster. Entering a valid PIN fully identifies the person — no separate role/name/school selection step. No shared/open self-identification, no separate OC access code.
 - **PIN is verified server-side only.** Client POSTs the PIN to a Cloud Function → function validates against the roster → mints a Firebase **custom token** → client calls `signInWithCustomToken`. Rules then gate on `request.auth.uid` like any normal Firebase app.
 - **The people collection is never client-readable.** PIN matching cannot happen on the client — that would require exposing every name and PIN in the roster, admin PINs included.
-- Auth function must **rate-limit PIN attempts** per device/IP — the PIN is the sole credential, so an unthrottled endpoint is a brute-force oracle
+- **No rate-limiting / lockout on PIN attempts** (decision 2026-07-18) — deliberately skipped for this low-value one-week event. Wrong PIN just shows an inline error; there is no cooldown and no `pinAttempts` bookkeeping. Trade-off: the endpoint is scriptable-brute-forceable; accepted, and a throttle is cheap to add later.
 - **`isAdmin` is the only source of admin access** — not the `Organizer` role. Organizers get the flag set at seed time; it can be granted to any role or revoked from an Organizer without changing their role. Security rules check the flag alone.
 - Onboarding is reduced to: enter PIN → done (plus first-time PWA install instructions)
 - Named roster pre-seeded in Firestore via Firebase console before event
@@ -110,7 +110,8 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - [2026-07-15] `division`/`teamLetter` live only on the school doc and are resolved by in-memory lookup — never denormalized onto people or FCM tokens. Chosen specifically so console corrections propagate instantly; denormalizing would silently strand stale team data during the event.
 - [2026-07-15] Team Ambassadors carry a `school` value (meaning "the team I'm assigned to"), so they inherit division+letter through the same lookup as delegates/coaches — this removed the need for any per-person division/teamLetter fields
 - [2026-07-15] PINs are 6-digit, uniform for all roles (was 4) — with ~500 people, 4 digits meant ~5% of random guesses hit a live account (~20 tries to land on someone, admins included); 6 digits drops that to ~0.05%. Uniform length beats admin-only 6-digit: simpler to explain and distribute, same protection.
-- [2026-07-15] PIN auth via Cloud Function + Firebase custom token; roster never client-readable; attempts rate-limited. **Consequence: Cloud Functions gate the first feature, not just document search** — Blaze upgrade moved to the front of the build order.
+- [2026-07-15] PIN auth via Cloud Function + Firebase custom token; roster never client-readable. **Consequence: Cloud Functions gate the first feature, not just document search** — Blaze upgrade moved to the front of the build order.
+- [2026-07-18] **No PIN rate-limiting / lockout** — dropped the earlier "must rate-limit" requirement and the `pinAttempts` collection. Judged not worth it for a low-value one-week event; wrong PIN shows an inline error only. Reversible later.
 - [2026-07-17] School added as a notification target (send to one named school), resolved at send time — extends the earlier role+division+letter targeting; token still stores no denormalized fields
 - [2026-07-17] Notification title is a required pick from a fixed preset set (Message from OC / Reminder / Urgent), not free text; recipients chosen as roles-then-narrowing-filters; Send shows a plain-language confirmation of the audience
 - [2026-07-17] FAQ reintroduced as a second *static* PDF (not the old OC-managed live Q&A store) — document search now cites rulebook + FAQ; both also openable full-screen in an off-the-shelf PDF viewer
@@ -123,18 +124,23 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - `functions/` — Firebase Cloud Functions (Node.js/TypeScript; deployed via `firebase deploy --only functions`)
 - `firebase.json`, `firestore.rules`, `firestore.indexes.json`, `.firebaserc` — Firebase config at root
 - `PAGES.md` — per-page UI spec (8 screens: Registration, Home, Previous Messages, Rules Search, Rules Results, PDF Viewer, Admin › Compose, Admin › Tracking); the build-against reference for frontend work
-- **`SCHEMA.md` — the source of truth for the Firestore data model (6 collections: `people`, `schools`, `announcements`, `fcmTokens`, `appOpens`, `pinAttempts`) and their client access rules. ALWAYS consult it before touching Firestore, `firestore.rules`, or any Cloud Function, and update it in the SAME commit as any data-model change so it never drifts from `firestore.rules`.**
+- `DESIGN.md` — the design language: semantic color tokens, 2 type roles (Montserrat body + TradeGothic CondEighteen Bold display), 9px-radius surface primitive whose outline color encodes state, navy→black gradient. Consult before building any UI. (Display font is licensed — needs a webfont or condensed-bold fallback.)
+- **`SCHEMA.md` — the source of truth for the Firestore data model (5 collections: `people`, `schools`, `announcements`, `fcmTokens`, `appOpens`) and their client access rules. ALWAYS consult it before touching Firestore, `firestore.rules`, or any Cloud Function, and update it in the SAME commit as any data-model change so it never drifts from `firestore.rules`.**
 - Single root `.gitignore` covers both subprojects (no per-directory gitignores)
 - Note: `app/` and `functions/` keep separate `package.json`/`tsconfig.json` — different runtimes (browser vs Node), intentional
 
 ## Status & Next Steps
-**Done:** Scaffold (React+Vite+PWA, Cloud Functions), single root `.gitignore`, PWA icons, Blaze upgrade, DB created (Standard edition, `northamerica-northeast1`/Montreal), `firestore.rules` written+audited+**deployed live**, `SCHEMA.md` = data-model source of truth, `dev-seed/` seeding tooling built (deletable; run + purge instructions in `dev-seed/README.md`)
-**Next:** user runs the seed (needs `dev-seed/service-account.json` from console — see README), then build the PIN auth Cloud Function (step 4).
+**Done:** Scaffold (React+Vite+PWA, Cloud Functions), single root `.gitignore`, PWA icons, Blaze upgrade, DB created (Standard edition, `northamerica-northeast1`/Montreal), `firestore.rules` written+audited+**deployed live**, `SCHEMA.md` = data-model source of truth, `dev-seed/` seeding tooling built + **seed run** (test PINs 100001–100014), **PIN auth function `authenticateWithPin` built + deployed + verified live** (mints custom token, resolves team via school lookup, returns profile; no rate-limiting)
+**Next:** step 5 — client-side PIN entry screen wired to `authenticateWithPin` (`signInWithCustomToken`), then FCM notifications.
+
+**Firebase gotchas (learned the hard way — needed for any fresh deploy):**
+- **Custom tokens need an IAM grant.** 2nd-gen functions run as the default *compute* SA (`799572583465-compute@developer.gserviceaccount.com`), which lacks token-signing rights. `createCustomToken` fails with `iam.serviceAccounts.signBlob denied` until that SA is granted **Service Account Token Creator** (done 2026-07-18, one-time, project IAM console).
+- **First-ever function deploy in a fresh project/region** often fails once with an IAM "service account can not be accessed" error while just-enabled APIs propagate — retry after ~90s. If the failed attempt left a half-created function, `functions:delete` then redeploy so the CLI applies the public-invoker binding (callable functions 403 without it).
 **Open questions:**
 - Google Calendar sync mechanism — public iCal feed vs. Calendar API with OAuth; needs research before implementation
 - Vercel AI SDK was originally chosen for its streaming/React integration; document search no longer streams to the client, so a plain Anthropic/OpenAI SDK call from the Cloud Function may now be simpler — revisit when implementing
 
-**Build order** (backend-out; UI stays bare-bones until Figma lands, each feature goes schema → function → UI before moving on):
+**Build order** (backend-out; UI is now built against `DESIGN.md` + `PAGES.md`, each feature goes schema → function → UI before moving on):
 1. **Blaze upgrade** — unblocks everything below
 2. **Firestore schema + security rules** — person schema settled (see User entity); roster locked to all client reads, admin gated on `isAdmin`
 3. **Seed ~14 test people** — one per role, plus extra delegates/coaches across 2 schools in different divisions/letters, so targeting and calendar merging can actually be exercised

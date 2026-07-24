@@ -18,8 +18,7 @@
 - [Submit]
 
 **Behavior**
-- Wrong PIN → inline error.
-- Repeated failures → eventual lockout warning (rate-limited server-side). 🟡 threshold TBD — proposing 5 attempts, then a cooldown message.
+- Wrong PIN → inline error. No lockout / cooldown (rate-limiting deliberately skipped — see CLAUDE.md 2026-07-18).
 
 ---
 

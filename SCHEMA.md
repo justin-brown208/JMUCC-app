@@ -17,7 +17,6 @@
 | `announcements` | only if addressed to you | ❌ (Functions) | your own message history |
 | `fcmTokens` | ❌ | your own device | push delivery address |
 | `appOpens` | ❌ | your own record | open-tracking timestamp |
-| `pinAttempts` | ❌ never | ❌ never | anti-brute-force bookkeeping |
 
 The client is almost entirely locked out by design. Nearly everything meaningful flows through Cloud Functions.
 
@@ -100,12 +99,12 @@ Kept in its own collection (rather than on the `people` doc) specifically so the
 
 ---
 
-## 6. `pinAttempts` — anti-brute-force
-Server-only bookkeeping the login Function uses to rate-limit PIN guesses (per device/IP). The PIN is the sole credential, so an unthrottled endpoint is a guessing oracle; this throttles it (proposed: 5 attempts, then a cooldown). Exact shape TBD when the login Function is built.
-
-**Access: fully locked — only the login Function touches it (Admin SDK).**
-
----
+> **No `pinAttempts` / rate-limiting.** We deliberately do **not** throttle or
+> lock out PIN attempts (decision 2026-07-18). Trade-off accepted: an unthrottled
+> endpoint can be brute-forced by a script (500 live PINs in a 6-digit space ≈ 1
+> in 2,000 guesses), but this is a low-value one-week event and a throttle is
+> cheap to add later if ever needed. The login Function just validates and mints
+> a token — it keeps no attempt bookkeeping.
 
 ## Cross-cutting notes
 - **Team resolution is always a lookup, never denormalized.** A person's division/letter = read their `school`, read that school's `division`/`teamLetter`. Done in memory (24 schools, ~500 people — trivially cheap).

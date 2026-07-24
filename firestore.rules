@@ -42,8 +42,8 @@ rules_version = '2';
 //   Document ID: person's auth uid
 //   Fields: lastOpenedAt timestamp
 //
-// Collection: pinAttempts      (NO client access — anti-brute-force)
-//   Server-only.
+// (No pinAttempts collection — PIN attempts are intentionally not throttled;
+//  decision 2026-07-18. See SCHEMA.md.)
 // ===============================================================
 
 service cloud.firestore {
@@ -152,14 +152,6 @@ service cloud.firestore {
       allow read: if false;
       allow create, update: if isOwner(personId) && isValidAppOpen(request.resource.data);
       allow delete: if false;
-    }
-
-    // -----------------------------------------------------------
-    // pinAttempts — fully locked. Anti-brute-force bookkeeping written
-    // only by the auth Function (Admin SDK).
-    // -----------------------------------------------------------
-    match /pinAttempts/{attemptId} {
-      allow read, write: if false;
     }
 
     // -----------------------------------------------------------
