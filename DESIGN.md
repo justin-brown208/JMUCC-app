@@ -80,6 +80,15 @@ display/white at the large step, sitting over the gold title as its eyebrow.
 **G. Meta / timestamp text.** Muted Montserrat, right-aligned against event rows —
 schedule times and attributes that must recede behind titles.
 
+**H. Status / position indicator.** A compact state marker for request tickets,
+following the same outline-not-fill logic: a small pill (9px radius, 1px outline,
+no fill) whose *outline + label color* encode state — **gold** for the live/active
+state a user is waiting on ("You're #3", claimed/"on it"), **muted** for settled
+or passive states (resolved, canceled). The position number itself is display-face
+so it reads as the salient figure. No new colors — reuses `accent` / `text-muted`.
+Request rows are otherwise built from **E** (accent-bar card) + **G** (meta) with
+**C**-style inline actions (Claim / Resolve / Cancel).
+
 ---
 
 ## 3. Grammar (composition rules)
@@ -107,3 +116,4 @@ schedule times and attributes that must recede behind titles.
 - Need to flag the important selectable item or the live draft? → same surface, **gold** outline (**A**).
 - Serving read-only reference entries? → **E** cards with the gold accent bar.
 - Featuring the current event? → **F** hero, white, over a gold eyebrow.
+- Marking a ticket's state / queue position? → **H** gold pill when live/waiting, muted when settled.

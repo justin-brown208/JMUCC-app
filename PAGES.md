@@ -32,13 +32,22 @@
   - Smaller entries for events after it
   - Widget-style, not a traditional month/week calendar view
 - **Latest message box** — shows the full content of the single most recent announcement
+- **Requests zone** *(only for eligible submitters — coaches + volunteer roles)*:
+  - One button **per queue the user may submit to**, labeled by intent:
+    - [Ask a Rules Question] → §9 *(academic — coaches + volunteers)*
+    - [Request a Runner] → §9 *(runner — volunteers only)*
+    - [Report a Tech Issue] → §9 *(tech — volunteers only)*
+  - **My Requests** strip below the buttons — the user's active tickets, each showing status + **live position** ("You're #3 in line") and a [Cancel] control. Empty when they have none.
 
 **Actions**
 - [Previous Messages] → §3
 - [Competition Rules] → §4
+- [My Queue] → §10 *(only visible to queue workers — Tech Volunteers, Runners, and the VP with `managesAcademicQueue`)*
 - [Admin] → §7 *(only visible when `isAdmin`)*
 
 **Not shown:** team/division/school info — users already know their own.
+
+**Note:** a person can be both a requester and a queue worker; Home shows whichever affordances apply to them.
 
 ---
 
@@ -122,3 +131,38 @@ Entered via [Admin] on Home. The area has its own internal navigation between th
 - List of sent notifications; select one to see:
   - High-level proportions by group (e.g. "19/40 volunteers, 22/24 schools")
   - Drill-down to named lists per group
+
+---
+
+## Requests (help-desk queues)
+A generalized queue feature: eligible users submit "call me" tickets; queue
+workers claim and resolve them. Entered from Home. See `SCHEMA.md` → `requests`.
+
+### 9. Submit a Request
+**Purpose:** Raise a ticket in one queue. Which queue is fixed by the button tapped on Home (§2), never chosen here.
+
+**Shows**
+- Title reflecting the queue (e.g. "Ask a Rules Question")
+- **Description** — optional short text box ("Anything we should know? (optional)")
+- **Room #** — single-line, prompted every time, may be left blank
+- **Phone** — pre-filled from the last value saved on this device; editable; saved locally on submit so it's typed once
+- [Submit]
+
+**Behavior**
+- Name is taken from the profile automatically — not entered.
+- On submit → ticket enters the queue at the back; user returns to Home where the **My Requests** strip now shows this ticket with its live position.
+- The queue's worker(s) get a push.
+
+### 10. My Queue
+**Purpose:** A queue worker sees and works their queue. *(Reachable only by Tech Volunteers, Runners, and the VP with `managesAcademicQueue`; each sees only the queue they work.)*
+
+**Shows**
+- Title: the queue name
+- **FIFO list of active tickets**, oldest first, each showing: requester name, room # (or "no room"), description (or "Call me"), phone, submitted-time, and status.
+- Per ticket: [Claim] (when open) → then [Resolve]. A claimed ticket shows who claimed it.
+
+**Behavior**
+- **Claim** is atomic — once one worker claims a ticket it can't be claimed by another; claiming pushes the requester ("someone's on it").
+- **Resolve** closes the ticket and pushes the requester.
+- Workers may claim/resolve **out of order** — position for waiting requesters still reflects creation order among what's active.
+- Resolved/canceled tickets drop off the list.

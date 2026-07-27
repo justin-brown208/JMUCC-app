@@ -68,6 +68,18 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - No acknowledgement or feedback features — notifications are one-way broadcasts
 - **Open tracking** — each user's last home-page-open timestamp is recorded; OC sees, per notification, a high-level breakdown by group (e.g. "19/40 volunteers, 22/24 schools have opened the app since this was sent"), with drill-down to a named list per group on request
 
+### Request / Queue
+- A **generalized help-desk queue**: eligible users submit simple "call me" tickets; queue workers claim and resolve them. Same ticket shape serves all queues, keyed by a `queue` field.
+- **3 queues at launch** (config hardcoded, static like the school list): `academic` (rules questions), `tech`, `runner`
+- **Who works each queue:** `tech` → anyone with role *Tech Volunteer*; `runner` → anyone with role *Runner*; `academic` → the one person carrying a `managesAcademicQueue` flag (the VP Academics, an OC member). Flag-pattern mirrors `isAdmin`; "VP Academics" is not a role
+- **Who submits:** Coaches → `academic` only; all 5 volunteer roles → any queue. Delegates/Organizers don't submit. Queue is fixed by the Home button tapped, never chosen on the form
+- **Ticket:** optional short description (all are "call me" type), phone (saved locally on the client, typed once), room # (prompted every time, may be blank), name (auto from profile). No ticket types/categories
+- **Lifecycle:** `open → claimed → resolved`, or `canceled` (by requester). Manager claims (atomic — no double-grab), resolves, or cancels; requester can cancel own. No "bounce"/reassign
+- **Queue position:** live FIFO rank among still-active tickets, **computed server-side** and written onto each ticket (requester can't read others' PII, so the number is pushed to them, not derived client-side). Managers may work out of order; a requester's position only ever drops
+- **Notifications (FCM):** submit → push queue worker(s); claim & resolve → push requester
+- **Visibility:** requester sees only their own ticket + position; the managing worker sees full details incl. phone (PII stays with the worker side)
+- **UI:** Home shows per-queue submit buttons + a "My Requests" strip (live position, cancel) for submitters, and a "My Queue" worker view for those who work a queue (see `PAGES.md` §9–10). A person can be both
+
 ### Admin Panel
 - Section of the main app gated by the person's `isAdmin` flag (not by role) — a navigable area with its own internal nav, entered from Home
 - Sub-pages: **Compose Notification** (quiet toggle, roles-then-filters targeting) and **Message Tracking** (list of sent notifications → per-notification open-tracking breakdown with drill-down)
@@ -116,6 +128,7 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - [2026-07-17] Notification title is a required pick from a fixed preset set (Message from OC / Reminder / Urgent), not free text; recipients chosen as roles-then-narrowing-filters; Send shows a plain-language confirmation of the audience
 - [2026-07-17] FAQ reintroduced as a second *static* PDF (not the old OC-managed live Q&A store) — document search now cites rulebook + FAQ; both also openable full-screen in an off-the-shelf PDF viewer
 - [2026-07-17] Calendar is a home-screen widget (next/current event prominent, later events smaller), not a full calendar view; PIN login persists permanently until logout
+- [2026-07-27] Added a **generalized request/queue** feature (new `requests` collection) — 3 hardcoded queues (academic/tech/runner); workers by role (Tech Volunteer, Runner) or by a `managesAcademicQueue` flag (VP Academics, not a role); coaches submit to academic only, volunteers to any; "call me" tickets with locally-saved phone; live FIFO position computed server-side and pushed (requester can't read others' PII); claim is atomic; pushes on submit/claim/resolve
 
 ---
 
@@ -123,9 +136,9 @@ PWA for a university case competition. Core features: push notifications, a Goog
 - `app/` — React + Vite + PWA frontend (deployed to Vercel); `vite-plugin-pwa` wired in `app/vite.config.ts`, PWA icons in place
 - `functions/` — Firebase Cloud Functions (Node.js/TypeScript; deployed via `firebase deploy --only functions`)
 - `firebase.json`, `firestore.rules`, `firestore.indexes.json`, `.firebaserc` — Firebase config at root
-- `PAGES.md` — per-page UI spec (8 screens: Registration, Home, Previous Messages, Rules Search, Rules Results, PDF Viewer, Admin › Compose, Admin › Tracking); the build-against reference for frontend work
+- `PAGES.md` — per-page UI spec (10 screens: Registration, Home, Previous Messages, Rules Search, Rules Results, PDF Viewer, Admin › Compose, Admin › Tracking, Submit a Request, My Queue); the build-against reference for frontend work
 - `DESIGN.md` — the design language: semantic color tokens, 2 type roles (Montserrat body + TradeGothic CondEighteen Bold display), 9px-radius surface primitive whose outline color encodes state, navy→black gradient. Consult before building any UI. (Display font is licensed — needs a webfont or condensed-bold fallback.)
-- **`SCHEMA.md` — the source of truth for the Firestore data model (5 collections: `people`, `schools`, `announcements`, `fcmTokens`, `appOpens`) and their client access rules. ALWAYS consult it before touching Firestore, `firestore.rules`, or any Cloud Function, and update it in the SAME commit as any data-model change so it never drifts from `firestore.rules`.**
+- **`SCHEMA.md` — the source of truth for the Firestore data model (6 collections: `people`, `schools`, `announcements`, `fcmTokens`, `appOpens`, `requests`) and their client access rules. ALWAYS consult it before touching Firestore, `firestore.rules`, or any Cloud Function, and update it in the SAME commit as any data-model change so it never drifts from `firestore.rules`.**
 - Single root `.gitignore` covers both subprojects (no per-directory gitignores)
 - Note: `app/` and `functions/` keep separate `package.json`/`tsconfig.json` — different runtimes (browser vs Node), intentional
 
@@ -144,9 +157,10 @@ PWA for a university case competition. Core features: push notifications, a Goog
 1. **Blaze upgrade** — unblocks everything below
 2. **Firestore schema + security rules** — person schema settled (see User entity); roster locked to all client reads, admin gated on `isAdmin`
 3. **Seed ~14 test people** — one per role, plus extra delegates/coaches across 2 schools in different divisions/letters, so targeting and calendar merging can actually be exercised
-4. **PIN entry flow** — auth Cloud Function (validate → custom token → `signInWithCustomToken`) with rate limiting, plus the entry screen
+4. **PIN entry flow** — auth Cloud Function (validate → custom token → `signInWithCustomToken`), no rate limiting, plus the entry screen  *(function done + deployed; entry screen pending)*
 5. **Notifications** — FCM send function (resolve teams in memory at send time), composer with quiet toggle, open tracking
 6. **Calendar** — merge role + team-letter calendars (resolve team via school lookup)
-7. **Document search** — needs LLM keys; most moving parts, so last
+7. **Requests / queues** — `requests` collection + rules, submit + My Requests + My Queue UI, position-recompute trigger, submit/claim/resolve pushes (reuses FCM from step 5)
+8. **Document search** — needs LLM keys; most moving parts, so last
 - Cross-cutting: iOS install-instruction prompt in onboarding
 
