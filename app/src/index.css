@@ -1,12 +1,57 @@
+/* Display face — the licensed condensed bold used for titles, buttons, and the
+   calendar hero (DESIGN.md §1 "type"). Self-hosted WOFF2; the fallback stack
+   keeps layout intact if it ever fails to load. font-display: swap paints text
+   immediately in the fallback and swaps in place. */
+@font-face {
+  font-family: 'TradeGothic Cond';
+  src: url('/fonts/tradegothic-condeighteen-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Body face — Montserrat Regular (DESIGN.md §1), self-hosted WOFF2 subset to
+   Latin + the punctuation the UI uses. Medium (500) not yet added — add a second
+   @font-face at weight 500 when a screen needs it. */
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* The single "display" token every heading/button/hero points at. */
+  --font-display: 'TradeGothic Cond', 'Oswald', 'Barlow Semi Condensed', sans-serif;
+  /* Body face — self-hosted Montserrat Regular, system UI fallback (DESIGN.md §1). */
+  --font-body: 'Montserrat', system-ui, -apple-system, sans-serif;
+
+  /* Semantic color tokens (DESIGN.md §1). */
+  --surface: rgb(33, 57, 87);
+  --surface-raised: rgb(49, 87, 130);
+  --accent: rgb(226, 199, 140);
+  --text: #ffffff;
+  --text-muted: rgb(171, 171, 171);
+  --gradient-end: #000000;
+
+  /* Geometry (DESIGN.md §1). */
+  --radius: 9px;
+  --radius-sm: 2px;
+}
+
 /* Solid fallback so the status-bar and home-indicator areas are never white,
    even before the gradient layer paints or when overscrolling past the edges. */
 html {
-  background: #213957;
+  background: var(--surface);
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
+  font-family: var(--font-body);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Gradient on a fixed layer pinned to the viewport (not the document), so it
@@ -17,7 +62,7 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(180deg, #213957 0%, #000 100%);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--gradient-end) 100%);
 }
 
 #root {
@@ -37,4 +82,112 @@ body::before {
   width: 180px;
   max-width: 60vw;
   height: auto;
+}
+
+/* --- Screen scaffold --- */
+/* One centered, responsive column (DESIGN.md §1 "layout"). */
+.screen {
+  width: 100%;
+  max-width: 340px;
+  box-sizing: border-box;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Screen title: display face, gold, uppercase, centered (DESIGN.md component F). */
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--accent);
+}
+
+/* --- Surface primitive (DESIGN.md component A) ---
+   State lives in the outline color: muted = passive, gold = active/focused.
+   Implemented as an inset outline so focus never shifts layout. */
+
+/* Labeled input field (component D), specialized here for the PIN. */
+.pin-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 28px;
+  text-align: center;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em; /* balance the trailing letter-spacing so glyphs read centered */
+  caret-color: var(--accent);
+}
+.pin-input::placeholder {
+  color: var(--text-muted);
+}
+.pin-input:focus {
+  outline-color: var(--accent);
+}
+.pin-input:disabled {
+  color: var(--text-muted);
+}
+
+/* Full-width action button (component C): muted-outline surface, display label. */
+.btn {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 15px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:not(:disabled):active {
+  outline-color: var(--accent);
+}
+.btn:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* Help / fine print (DESIGN.md "meta"): muted Montserrat, centered. */
+.help {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Inline error. NOTE: DESIGN.md defines no danger/error color, so this reuses
+   the accent as an "attention" cue — revisit if a dedicated token is added. */
+.error {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--accent);
+}
+
+/* Home greeting (temporary — stub screen). */
+.greeting {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text);
 }
