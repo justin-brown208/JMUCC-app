@@ -114,7 +114,7 @@ optional short note plus a phone number to reach the requester.
 | `phone` | string | number to call back; saved locally on the client so it's typed once |
 | `room` | string \| null | prompted every submit, may be blank |
 | `description` | string \| null | optional, short (≤ ~200 chars) |
-| `status` | string | `"open"` → `"claimed"` → `"resolved"`, or `"canceled"` |
+| `status` | string | `"open"` → `"claimed"` → `"resolved"`, or `"canceled"`. A worker may also **release** `"claimed"` → `"open"` (un-claim, back into the pool) |
 | `position` | number \| null | live FIFO rank among still-active tickets in the queue; **computed server-side**; null once closed |
 | `createdAt` | timestamp | submit time; the FIFO ordering key |
 | `claimedBy` | string \| null | manager's person id, set on claim |
@@ -138,13 +138,15 @@ Function whenever a ticket in the queue is created/closed (guarded so position-o
 writes don't re-trigger it).
 
 **Notifications** (FCM): on **create** → push the queue's manager(s); on **claim**
-and **resolve** → push the requester. Sent from the same trigger.
+and **resolve** → push the requester. Sent from the same trigger. **Release is
+silent** — no push (the requester keeps their position, so there's nothing to
+tell them).
 
 **Access:**
 - **Create:** a requester may create a ticket where `requesterId == uid`, `status == "open"`, manager/position/timestamp fields empty, **and** their role is allowed to submit to that `queue` (checked via `get()` on their `people` doc: Coach → `academic` only; volunteer roles → any). `requesterName` must match their roster name.
 - **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`).
 - **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`); no other fields.
-- **Claim/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid`, only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket) and `claimed → resolved`.
+- **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid`, only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved`, and **release** `claimed → open` (clearing `claimedBy`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
 - No client may change `queue`, `requesterId`, `createdAt`, or `position`.
 
 ---

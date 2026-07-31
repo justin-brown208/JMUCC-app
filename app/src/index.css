@@ -38,6 +38,9 @@
   /* Geometry (DESIGN.md §1). */
   --radius: 9px;
   --radius-sm: 2px;
+
+  /* Dark label color for text sitting on the gold accent (filled primary). */
+  --on-accent: #10233f;
 }
 
 /* Solid fallback so the status-bar and home-indicator areas are never white,
@@ -190,4 +193,279 @@ body::before {
   font-size: 13px;
   text-align: center;
   color: var(--text);
+}
+
+/* --- Form building blocks (composer, and reused elsewhere) --- */
+
+/* Field label (DESIGN.md "label": Montserrat, muted). */
+.label {
+  display: block;
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* Secondary grouping label inside a field (e.g. Division / Team Letter). */
+.sublabel {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 12px 0 6px;
+}
+
+/* A labelled block groups a label with its control(s). */
+.field {
+  width: 100%;
+  text-align: left;
+}
+
+/* Recipient group: even vertical rhythm between All Volunteers, the divider,
+   and the role chips so they read as one block (not a floating row). */
+.recipients {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Each filter (Division / Team Letter / School) gets breathing room above it. */
+.filter-section {
+  margin-top: 20px;
+}
+
+/* Selectable item (DESIGN.md component A/B). Unselected reads as muted — text
+   AND outline the same gray. Selected lifts to white text + gold outline. This
+   coloring is shared by chips and full-width option rows. */
+.chip,
+.option-row {
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.chip.selected,
+.option-row.selected {
+  outline-color: var(--accent);
+  color: var(--text);
+}
+
+/* Chip: compact, for multi-value pickers (roles, divisions, letters). */
+.chip {
+  font-size: 13px;
+  padding: 7px 12px;
+}
+
+/* Full-width stacked option (title presets, options toggles). */
+.option-row {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 14px;
+  padding: 12px 14px;
+}
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A wrapping row of chips. */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Fill variant: chips stretch to share the full row width equally. */
+.chip-row--fill .chip {
+  flex: 1;
+  text-align: center;
+}
+
+/* Hairline group divider (DESIGN.md: gold under groups). */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+/* Multiline input (DESIGN.md component D). */
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  resize: vertical;
+}
+.textarea::placeholder {
+  color: var(--text-muted);
+}
+.textarea:focus {
+  outline-color: var(--accent);
+}
+
+/* Dropdown (DESIGN.md component D, dropdown variant with gold caret). */
+.select-wrap {
+  position: relative;
+  width: 100%;
+}
+.select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 32px 12px 12px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.select:focus {
+  outline-color: var(--accent);
+}
+.select-caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  pointer-events: none;
+}
+
+/* Secondary action (Reset, Back, Log out): quieter than the full-width .btn. */
+.btn-secondary {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Back link (top-left of a sub-screen). */
+.back {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Primary + Reset share a row; Send is wider (DESIGN.md: primary = filled gold). */
+.button-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Filled-gold primary action — the one emphatic button per screen. */
+.btn-primary {
+  flex: 2;
+  padding: 15px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* When not ready, drop to an inert outlined state so it doesn't invite a tap. */
+.btn-primary:disabled {
+  background: var(--surface);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* Outlined counterpart that rides alongside the primary (Reset / Back). */
+.btn-reset {
+  flex: 1;
+  padding: 15px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Filters group heading: smaller gold display header + muted subtext, centered. */
+.filters {
+  width: 100%;
+}
+.filters-header {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--accent);
+}
+.filters-sub {
+  margin: 2px 0 12px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Send confirmation panel (raised surface to lift off the gradient). */
+.confirm {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-raised);
+  border-radius: var(--radius);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.confirm-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Meta line (DESIGN.md component G). */
+.meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
 }

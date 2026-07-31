@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
+import { getFirestore } from "firebase/firestore";
 
 // Public Firebase web config. These values are client identifiers, not secrets —
 // they ship in every web build. Security is enforced by Firestore rules + Auth,
@@ -22,3 +23,13 @@ export const auth = getAuth(app);
 
 // Region MUST match the Cloud Functions deploy region (functions/src/index.ts).
 export const functions = getFunctions(app, "northamerica-northeast1");
+
+// Firestore client — used only for the few things the client may write
+// (its own fcmToken, its own appOpens). Everything sensitive goes via Functions.
+export const db = getFirestore(app);
+
+// Web Push (VAPID) public key from the Firebase console → Cloud Messaging →
+// Web Push certificates. A public identifier like the rest of this config —
+// safe to commit. Push registration no-ops until this is set.
+export const VAPID_KEY =
+  "BLJ3-gHjIA4ovLEwCd9oliJItWp0vBW_PetMtBG7xDJa0GzfthTWvE_kb1gXQp3emkYJBpVYm2iNk_iQPNC23Xg";

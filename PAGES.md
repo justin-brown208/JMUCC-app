@@ -31,6 +31,7 @@
   - Current / soonest-upcoming event, shown large
   - Smaller entries for events after it
   - Widget-style, not a traditional month/week calendar view
+  - **[View Full Week]** → §11 — opens the whole-week schedule as a zoomable image
 - **Latest message box** — shows the full content of the single most recent announcement
 - **Requests zone** *(only for eligible submitters — coaches + volunteer roles)*:
   - One button **per queue the user may submit to**, labeled by intent:
@@ -113,11 +114,14 @@ Entered via [Admin] on Home. The area has its own internal navigation between th
   - **[All Volunteers]** shortcut — selects the 5 volunteer roles at once
 - **Options**
   - [Silent]
+
+- [Send]  [Reset] *(smaller)*
+
 - **Filters** *(narrow the selected roles; all teams targeted if left blank)*
   - Division: [1] [2] [3] [4] [5] [6]
   - Team Letter: [A] [B] [C] [D]
   - School: [dropdown] — send to one specific school
-- [Send]  [Reset] *(smaller)*
+
 
 **Behavior**
 - Recipient model = **role buttons, then narrowed by filters** (division / letter / school).
@@ -159,10 +163,23 @@ workers claim and resolve them. Entered from Home. See `SCHEMA.md` → `requests
 **Shows**
 - Title: the queue name
 - **FIFO list of active tickets**, oldest first, each showing: requester name, room # (or "no room"), description (or "Call me"), phone, submitted-time, and status.
-- Per ticket: [Claim] (when open) → then [Resolve]. A claimed ticket shows who claimed it.
+- Per ticket: [Claim] (when open) → then [Resolve] or [Drop]. A claimed ticket shows who claimed it.
 
 **Behavior**
 - **Claim** is atomic — once one worker claims a ticket it can't be claimed by another; claiming pushes the requester ("someone's on it").
 - **Resolve** closes the ticket and pushes the requester.
+- **Drop** releases a claimed ticket back to the queue (un-claims it) — it returns to the waiting list for anyone to take. **No notification** to the requester, and they keep their position. Any queue worker can drop a claimed ticket, so an abandoned claim can be freed.
 - Workers may claim/resolve **out of order** — position for waiting requesters still reflects creation order among what's active.
 - Resolved/canceled tickets drop off the list.
+
+---
+
+## 11. Full Week Schedule
+**Purpose:** The whole-week schedule at a glance — the wide view the Home widget deliberately isn't. Reached via [View Full Week] on Home (§2).
+
+**Shows**
+- A single **static schedule image** (poster/grid the OC supplies before the event), shown in a **zoomable / pannable image viewer**.
+
+**Behavior**
+- Uses an **off-the-shelf image viewer** (pinch/scroll to zoom, drag to pan) — not custom-built, not generated from the calendar feed.
+- Read-only. No per-user personalization — it's the same full-week image for everyone.

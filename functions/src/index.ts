@@ -23,3 +23,4 @@ initializeApp();
 setGlobalOptions({region: "northamerica-northeast1", maxInstances: 10});
 
 export {authenticateWithPin} from "./auth.js";
+export {sendNotification} from "./notifications.js";

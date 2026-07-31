@@ -17,6 +17,7 @@ outline color to cover input, selection, navigation, announcement, and reference
 | `text` | #FFFFFF | Primary body copy and values on blue |
 | `text-muted` | rgb(171, 171, 171) | Labels, placeholders, inactive controls, and inactive outlines |
 | `gradient-end` | #000000 | Gradient terminus only — never a fill on its own |
+| `on-accent` | #10233F — dark navy | Label color for text on the gold fill (primary button) |
 
 **Signature surface:** a full-bleed vertical gradient
 `linear-gradient(180deg, var(--surface) 0%, var(--gradient-end) 100%)`, pinned to
@@ -42,6 +43,7 @@ the viewport so it fills the screen and survives scroll. *(Already implemented i
 ### Geometry
 - **Radius:** `radius` = 9px on every interactive surface; `radius-sm` = 2px on the accent tick-bar.
 - **Outline:** a 1px inset outline carries state — **gold** = active/important/editable/selected, **muted** = inactive/secondary/unselected. *(Implement as an inset outline so it never shifts layout.)*
+- **Label color tracks selection:** an unselected control's text is the **same muted gray as its outline**; selecting it lifts the text to **white** (and the outline to gold). So state reads twice — outline *and* label.
 - **Spacing:** 4px base unit → 4 / 8 / 12 / 16 / 24 / 32 / 48.
 - **Layout:** one centered, responsive column (max-width on phones, fluid below) — no fixed canvas size.
 
@@ -58,10 +60,16 @@ passive). Large content boxes swap the fill to `surface-raised` to stand off the
 body text) in a horizontally-scrolling row. For multi-value pickers where every
 option shows at once: recipient roles, Division (1–6), Team Letter (A–D).
 
-**C. Full-width action button.** A surface at full column width (~48px tall) with
-a centered display label. Muted outline = navigation / "open the full record" /
-send — e.g. Competition Rules, Previous Messages, Full Rulebook, Full FAQ, Send,
-Reset. Stacked vertically.
+**C. Action buttons — one primary, filled; the rest outlined.** Full column
+width (~48px tall), centered display label.
+- **Primary (filled gold):** the single emphatic action on a screen — Send,
+  Submit, Confirm. Solid `accent` fill with a dark (`on-accent`) label. Disabled
+  → drops to the inert muted-outline look so it doesn't invite a tap.
+- **Secondary (outlined):** everything else — navigation / "open the full record"
+  / Reset / Back — a muted-outline surface with a white label (Competition Rules,
+  Previous Messages, Full Rulebook, Full FAQ).
+- A primary + its outlined partner can **share a row** (Send wider than Reset);
+  otherwise buttons stack vertically.
 
 **D. Labeled input field.** Muted-outline surface (tall for multiline, short for
 single-line) under a muted label. White text, muted placeholder. A **dropdown**
@@ -96,8 +104,10 @@ Request rows are otherwise built from **E** (accent-bar card) + **G** (meta) wit
 - **One accent, used sparingly.** Gold only for titles, active outlines, list
   bars, carets, and dividers. Passive-but-functional = muted; readable-and-primary
   = white. **Blue is structure, never emphasis.**
-- **State = outline swap, not fill swap.** Selection/importance trades a muted
-  outline for a gold one on the *same* surface. No hover fills, no color washes.
+- **State = outline + label swap; fills stay flat.** Selection/importance trades
+  a muted outline (and muted label) for a gold outline (and white label) on the
+  *same* surface. No hover fills, no color washes. **One exception:** the primary
+  action button is a deliberate gold *fill* — the single filled surface per screen.
 - **Hierarchy = typeface + case, not size alone.** Condensed uppercase = a heading
   or button; sentence-case Montserrat = content; muted Montserrat = a label or an
   inactive control.
