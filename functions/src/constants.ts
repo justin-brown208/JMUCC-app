@@ -30,9 +30,9 @@ export const VOLUNTEER_ROLES: readonly Role[] = [
 
 // Notification titles are a fixed preset pick, not free text (2026-07-17).
 export const NOTIFICATION_TITLES = [
-  "Message from the Organizing Committee",
+  "Message",
+  "Announcement",
   "Reminder",
-  "Urgent Message",
 ] as const;
 
 export const TEAM_LETTERS = ["A", "B", "C", "D"] as const;

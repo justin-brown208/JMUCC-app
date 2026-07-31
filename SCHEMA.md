@@ -59,7 +59,7 @@ One document per notification the OC sends. Written by the send Function.
 
 | Field | Type | Notes |
 |---|---|---|
-| `title` | string | one of 3 presets: "Message from the Organizing Committee" / "Reminder" / "Urgent Message" |
+| `title` | string | one of 3 presets: "Message" / "Announcement" / "Reminder" |
 | `body` | string | the message text |
 | `silent` | boolean | the quiet toggle (suppresses sound/vibration) |
 | `sentAt` | timestamp | when it was sent |

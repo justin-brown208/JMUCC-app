@@ -179,8 +179,8 @@ communications during the event.
 
 **Compose a Notification** — send a targeted message:
 
-- **Pick a title** from a short preset list (Message from the Organizing
-  Committee / Reminder / Urgent Message) — quick and consistent.
+- **Pick a title** from a short preset list (Message / Announcement /
+  Reminder) — quick and consistent.
 - **Write the message**, and choose whether to send it **quietly** (no sound or
   buzz).
 - **Choose who gets it:** start by picking one or more **roles** (with an

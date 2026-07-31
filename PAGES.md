@@ -105,9 +105,10 @@ Entered via [Admin] on Home. The area has its own internal navigation between th
 **Shows**
 - Title: "Compose a Notification"
 - **Title\*** — required, pick one of a predefined set (no custom text):
-  - Message from the Organizing Committee
+  - Message
+  - Announcement
   - Reminder
-  - Urgent Message
+  - *(iOS/Android append "…from JMUCC" automatically, so titles stay short)*
 - **Body Text\*** — text box
 - **Recipient Groups\*** — a button per role (the primary "who"):
   - Delegate · Coach · Organizer · Presentation Room Coordinator · Team Ambassador · Tech Volunteer · General Volunteer · Runner

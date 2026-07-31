@@ -26,9 +26,9 @@ export const VOLUNTEER_ROLES = [
 ] as const;
 
 export const NOTIFICATION_TITLES = [
-  "Message from the Organizing Committee",
+  "Message",
+  "Announcement",
   "Reminder",
-  "Urgent Message",
 ] as const;
 
 export const DIVISIONS = [1, 2, 3, 4, 5, 6] as const;
