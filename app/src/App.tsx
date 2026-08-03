@@ -7,10 +7,16 @@ import { Home } from "./screens/Home";
 import { PreviousMessages } from "./screens/PreviousMessages";
 import { Compose } from "./screens/admin/Compose";
 import { Tracking } from "./screens/admin/Tracking";
+import { Scheduled } from "./screens/admin/Scheduled";
 
 // Minimal in-app navigation. One flat view state is enough for now; swap for a
 // router if deep-linking or nested admin nav is ever needed.
-export type View = "home" | "previous" | "compose" | "tracking";
+export type View =
+  | "home"
+  | "previous"
+  | "compose"
+  | "tracking"
+  | "scheduled";
 
 function App() {
   // undefined = auth state not resolved yet (restoring a persisted session);
@@ -39,6 +45,9 @@ function App() {
   }
   if (view === "tracking" && profile.isAdmin) {
     return <Tracking onNavigate={setView} />;
+  }
+  if (view === "scheduled" && profile.isAdmin) {
+    return <Scheduled onNavigate={setView} />;
   }
   return <Home profile={profile} onNavigate={setView} />;
 }

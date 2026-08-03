@@ -315,6 +315,30 @@ body::before {
   outline-color: var(--accent);
 }
 
+/* Datetime picker (schedule-for-later). Surface + muted outline like an input. */
+.datetime {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+.datetime:focus {
+  outline-color: var(--accent);
+}
+/* Show the native calendar/clock icon in the accent instead of near-invisible. */
+.datetime::-webkit-calendar-picker-indicator {
+  filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(5deg);
+  cursor: pointer;
+}
+
 /* Dropdown (DESIGN.md component D, dropdown variant with gold caret). */
 .select-wrap {
   position: relative;
@@ -520,6 +544,33 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* Scheduled-send row: title + status pill on one line, then details. */
+.sched-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sched-head .msg-title {
+  margin: 0;
+}
+/* Status pill (DESIGN.md component H): outline + label encode state, no fill.
+   Gold = the live/pending state you're waiting on; muted = settled. */
+.sched-status {
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  font-size: 11px;
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text-muted);
+}
+.sched-status--scheduled,
+.sched-status--sending {
+  outline-color: var(--accent);
+  color: var(--accent);
 }
 
 /* --- Admin area nav (Compose / Tracking tabs) --- */

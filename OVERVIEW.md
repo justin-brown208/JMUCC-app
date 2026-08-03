@@ -181,6 +181,9 @@ communications during the event.
 
 - **Pick a title** from a short preset list (Message / Announcement /
   Reminder) — quick and consistent.
+- **Send now or schedule for later** — pick a future date and time and the
+  message goes out on its own; a **Scheduled** tab lists everything queued and
+  lets you cancel anything that hasn't sent yet.
 - **Write the message**, and choose whether to send it **quietly** (no sound or
   buzz).
 - **Choose who gets it:** start by picking one or more **roles** (with an

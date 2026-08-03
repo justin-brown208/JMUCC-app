@@ -12,10 +12,12 @@ import {
   type SchoolOption,
   type SendResult,
 } from "../../notifications";
+import { scheduleNotification } from "../../scheduling";
 import { AdminNav } from "../../components/AdminNav";
 import type { View } from "../../App";
 
-type Phase = "edit" | "confirm" | "sending" | "sent";
+type Phase = "edit" | "confirm" | "sending" | "sent" | "scheduled";
+type Mode = "now" | "later";
 
 /**
  * Admin > Compose Notification (PAGES.md §7). Pick a preset title, write a body,
@@ -33,6 +35,8 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [school, setSchool] = useState<string>("");
   const [schools, setSchools] = useState<SchoolOption[]>([]);
 
+  const [mode, setMode] = useState<Mode>("now");
+  const [sendAt, setSendAt] = useState(""); // datetime-local string
   const [phase, setPhase] = useState<Phase>("edit");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SendResult | null>(null);
@@ -44,7 +48,10 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
   }, []);
 
   const allVolunteers = VOLUNTEER_ROLES.every((r) => roles.includes(r));
-  const canSend = title !== null && body.trim() !== "" && roles.length > 0;
+  const formReady = title !== null && body.trim() !== "" && roles.length > 0;
+  const sendAtMs = sendAt ? new Date(sendAt).getTime() : NaN;
+  const timeReady = mode === "now" || (Number.isFinite(sendAtMs) && sendAtMs > Date.now());
+  const canSubmit = formReady && timeReady;
 
   const summary = useMemo(
     () => audience(roles, divisions, letters, school, schools),
@@ -73,26 +80,33 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
     setDivisions([]);
     setLetters([]);
     setSchool("");
+    setMode("now");
+    setSendAt("");
     setPhase("edit");
     setError(null);
     setResult(null);
   }
 
-  async function confirmSend() {
+  async function confirmSubmit() {
     setPhase("sending");
     setError(null);
+    const payload = {
+      title: title as string,
+      body: body.trim(),
+      silent,
+      roles,
+      divisions,
+      teamLetters: letters,
+      school: school || null,
+    };
     try {
-      const res = await sendNotification({
-        title: title as string,
-        body: body.trim(),
-        silent,
-        roles,
-        divisions,
-        teamLetters: letters,
-        school: school || null,
-      });
-      setResult(res);
-      setPhase("sent");
+      if (mode === "now") {
+        setResult(await sendNotification(payload));
+        setPhase("sent");
+      } else {
+        await scheduleNotification({ ...payload, sendAtMillis: sendAtMs });
+        setPhase("scheduled");
+      }
     } catch (err) {
       setError(messageFor(err));
       setPhase("edit");
@@ -112,6 +126,28 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
             " · no devices registered yet"}
           {result.failed > 0 ? ` · ${result.failed} failed` : ""}.
         </p>
+        <button className="btn-primary" type="button" onClick={reset}>
+          Compose Another
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === "scheduled") {
+    return (
+      <div className="screen">
+        <AdminNav active="compose" onNavigate={onNavigate} />
+        <h1 className="title">Scheduled</h1>
+        <p className="greeting">
+          This will send {sendAt ? `on ${formatWhen(sendAt)}` : "at the set time"}.
+        </p>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => onNavigate("scheduled")}
+        >
+          View Scheduled
+        </button>
         <button className="btn-primary" type="button" onClick={reset}>
           Compose Another
         </button>
@@ -210,16 +246,53 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
         </div>
       </div>
 
+      {/* When — send now or schedule for later */}
+      <div className="field">
+        <span className="label">When</span>
+        <div className="chip-row">
+          <button
+            type="button"
+            className={"chip" + (mode === "now" ? " selected" : "")}
+            onClick={() => setMode("now")}
+          >
+            Send now
+          </button>
+          <button
+            type="button"
+            className={"chip" + (mode === "later" ? " selected" : "")}
+            onClick={() => setMode("later")}
+          >
+            Schedule for later
+          </button>
+        </div>
+        {mode === "later" && (
+          <input
+            type="datetime-local"
+            className="datetime"
+            value={sendAt}
+            min={nowLocal()}
+            onChange={(e) => setSendAt(e.target.value)}
+          />
+        )}
+      </div>
+
       {error && <p className="error">{error}</p>}
 
       {/* Send / Reset — same row, above the filters (PAGES.md §7) */}
       {phase === "confirm" ? (
         <div className="confirm">
           <p className="confirm-text">{summary}</p>
+          {mode === "later" && sendAt && (
+            <p className="meta">Scheduled for {formatWhen(sendAt)}.</p>
+          )}
           {silent && <p className="meta">Sent silently (no sound).</p>}
           <div className="button-row">
-            <button className="btn-primary" type="button" onClick={confirmSend}>
-              Confirm Send
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={confirmSubmit}
+            >
+              {mode === "now" ? "Confirm Send" : "Confirm Schedule"}
             </button>
             <button
               className="btn-reset"
@@ -237,10 +310,12 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
             <button
               className="btn-primary"
               type="button"
-              disabled={!canSend || sending}
+              disabled={!canSubmit || sending}
               onClick={() => setPhase("confirm")}
             >
-              {sending ? "Sending…" : "Send"}
+              {sending ?
+                "Working…" :
+                mode === "now" ? "Send" : "Schedule"}
             </button>
             <button className="btn-reset" type="button" onClick={reset}>
               Reset
@@ -328,6 +403,29 @@ function audience(
   }
   const narrow = parts.length ? " in " + parts.join(", ") : "";
   return `This goes to ${roleStr}${narrow}.`;
+}
+
+// Current local time as a datetime-local value ("YYYY-MM-DDTHH:mm"), for the
+// input's min so past times can't be picked.
+function nowLocal(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+}
+
+// A datetime-local string → friendly display ("Mar 15, 9:00 AM").
+function formatWhen(v: string): string {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function messageFor(err: unknown): string {

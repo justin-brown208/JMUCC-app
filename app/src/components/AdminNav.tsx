@@ -8,7 +8,7 @@ export function AdminNav({
   active,
   onNavigate,
 }: {
-  active: "compose" | "tracking";
+  active: "compose" | "tracking" | "scheduled";
   onNavigate: (view: View) => void;
 }) {
   return (
@@ -23,6 +23,13 @@ export function AdminNav({
           onClick={() => onNavigate("compose")}
         >
           Compose
+        </button>
+        <button
+          type="button"
+          className={"admin-tab" + (active === "scheduled" ? " active" : "")}
+          onClick={() => onNavigate("scheduled")}
+        >
+          Scheduled
         </button>
         <button
           type="button"

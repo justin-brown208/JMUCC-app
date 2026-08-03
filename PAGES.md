@@ -97,7 +97,7 @@
 ---
 
 ## Admin Area *(only reachable when `isAdmin`)*
-Entered via [Admin] on Home. The area has its own internal navigation between the sub-pages below.
+Entered via [Admin] on Home. The area has its own internal navigation (tabs: **Compose · Scheduled · Tracking**) between the sub-pages below.
 
 ### 7. Compose Notification
 **Purpose:** OC composes and sends a targeted announcement.
@@ -115,8 +115,9 @@ Entered via [Admin] on Home. The area has its own internal navigation between th
   - **[All Volunteers]** shortcut — selects the 5 volunteer roles at once
 - **Options**
   - [Silent]
+- **When** — [Send now] / [Schedule for later]. Choosing "Schedule for later" reveals a date-&-time picker (must be in the future).
 
-- [Send]  [Reset] *(smaller)*
+- [Send / Schedule]  [Reset] *(smaller)* — the primary button reads **Send** in now-mode, **Schedule** in later-mode.
 
 - **Filters** *(narrow the selected roles; all teams targeted if left blank)*
   - Division: [1] [2] [3] [4] [5] [6]
@@ -127,7 +128,19 @@ Entered via [Admin] on Home. The area has its own internal navigation between th
 **Behavior**
 - Recipient model = **role buttons, then narrowed by filters** (division / letter / school).
 - [Reset] clears the whole form.
-- [Send] → confirmation dialog with plain-language subtext describing exactly who will receive it (e.g. "This goes to all Coaches in Division 3, Team A").
+- Primary button → confirmation with plain-language subtext describing exactly who will receive it (e.g. "This goes to all Coaches in Division 3, Team A"), plus the scheduled time when in later-mode.
+- **Scheduled sends resolve their audience at fire time**, not at schedule time — a school moved between divisions before it fires is still targeted correctly. Confirmed via the same path as an immediate send.
+
+### 7a. Scheduled *(management list)*
+**Purpose:** See queued future sends and cancel any still pending. Scheduling happens in Compose; this tab only lists/cancels.
+
+**Shows**
+- List of scheduled sends (newest send-time first), each with: title, body, send time, targeted roles (+ "(filtered)" / "silent" tags), and a **status** pill — Scheduled / Sending / Sent / Canceled / Failed (failed shows the reason).
+- [Cancel] on any **Scheduled** item.
+
+**Behavior**
+- A background job fires due sends every minute; a fired send also appears in message history + tracking like any other.
+- Cancel only works while still **Scheduled** (if it already fired, you're told).
 
 ### 8. Message Tracking
 **Purpose:** Per-notification breakdown of who has opened the app since it was sent.
