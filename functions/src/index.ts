@@ -24,3 +24,9 @@ setGlobalOptions({region: "northamerica-northeast1", maxInstances: 10});
 
 export {authenticateWithPin} from "./auth.js";
 export {sendNotification} from "./notifications.js";
+export {getMessageTracking} from "./tracking.js";
+export {
+  scheduleNotification,
+  cancelScheduledNotification,
+  runScheduledSends,
+} from "./scheduling.js";

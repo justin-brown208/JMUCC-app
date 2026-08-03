@@ -155,6 +155,17 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------
+    // scheduledNotifications — pending future sends. Admins read (the
+    // Scheduled tab lists them). All writes go through callables
+    // (scheduleNotification / cancelScheduledNotification) + the scheduler,
+    // which use the Admin SDK, so no client writes.
+    // -----------------------------------------------------------
+    match /scheduledNotifications/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------
     // Catch-all: anything not matched above is denied.
     // -----------------------------------------------------------
     match /{document=**} {

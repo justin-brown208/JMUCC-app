@@ -32,8 +32,9 @@ import {
   NOTIFICATION_TITLES,
   TEAM_LETTERS,
 } from "./constants.js";
+import {assertAdmin} from "./shared.js";
 
-interface SendRequest {
+export interface SendPayload {
   title: string;
   body: string;
   silent?: boolean;
@@ -43,7 +44,7 @@ interface SendRequest {
   school?: string | null;
 }
 
-interface SendResult {
+export interface SendResult {
   announcementId: string;
   recipientCount: number; // people matched
   tokenCount: number; // devices targeted
@@ -61,117 +62,103 @@ export const sendNotification = onCall(
   async (request): Promise<SendResult> => {
     const db = getFirestore();
     await assertAdmin(db, request.auth?.uid);
-
-    const data = (request.data ?? {}) as SendRequest;
-    validate(data);
-
-    const roles = new Set<string>(data.roles);
-    const divisions = data.divisions?.length ?
-      new Set(data.divisions) :
-      null;
-    const letters = data.teamLetters?.length ?
-      new Set(data.teamLetters) :
-      null;
-    const school = data.school || null;
-
-    // Team lookup: schoolId -> {division, teamLetter}.
-    const teamOf = await loadTeamLookup(db);
-
-    // Filter the roster in memory.
-    const peopleSnap = await db.collection("people").get();
-    const recipientIds: string[] = [];
-    for (const doc of peopleSnap.docs) {
-      const p = doc.data();
-      if (!roles.has(p.role)) continue;
-
-      const team = p.school ? teamOf.get(p.school) : undefined;
-      const division = team?.division ?? null;
-      const teamLetter = team?.teamLetter ?? null;
-
-      // Narrowing filters. Someone with no team can't match a team-based
-      // filter, so setting one excludes the teamless (Organizers, etc.).
-      if (divisions && (division === null || !divisions.has(division))) {
-        continue;
-      }
-      if (letters && (teamLetter === null || !letters.has(teamLetter))) {
-        continue;
-      }
-      if (school && p.school !== school) continue;
-
-      recipientIds.push(doc.id);
-    }
-
-    if (recipientIds.length === 0) {
-      throw new HttpsError(
-        "failed-precondition",
-        "No one matches those recipients — adjust the roles or filters."
-      );
-    }
-
-    const body = data.body.trim();
-    const silent = data.silent === true;
-
-    // Record the send. recipientIds is the durable record of who it went to:
-    // message history reads it, open-tracking compares against it.
-    const announcementRef = await db.collection("announcements").add({
-      title: data.title,
-      body,
-      silent,
-      sentAt: FieldValue.serverTimestamp(),
-      recipientIds,
-    });
-
-    // Deliver to the recipients' devices.
-    const tokens = await tokensFor(db, recipientIds);
-    let delivered = 0;
-    let failed = 0;
-    if (tokens.length > 0) {
-      const res = await sendPush(
-        tokens,
-        data.title,
-        body,
-        silent,
-        announcementRef.id
-      );
-      delivered = res.delivered;
-      failed = res.failed;
-      if (res.staleDocIds.length > 0) await pruneTokens(db, res.staleDocIds);
-    }
-
-    logger.info("Notification sent", {
-      announcementId: announcementRef.id,
-      recipientCount: recipientIds.length,
-      tokenCount: tokens.length,
-      delivered,
-      failed,
-    });
-
-    return {
-      announcementId: announcementRef.id,
-      recipientCount: recipientIds.length,
-      tokenCount: tokens.length,
-      delivered,
-      failed,
-    };
+    const data = (request.data ?? {}) as SendPayload;
+    validatePayload(data);
+    return performSend(db, data);
   });
 
-// Gate on the caller's isAdmin flag (not their role — see CLAUDE.md).
-const assertAdmin = async (
+// Resolve targeting, record the announcement, and fan out FCM. Shared by the
+// immediate send (above) and the scheduler (scheduling.ts) — both take the
+// exact same path, so a scheduled send behaves identically to a live one.
+export const performSend = async (
   db: Firestore,
-  uid: string | undefined
-): Promise<void> => {
-  if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
-  const doc = await db.collection("people").doc(uid).get();
-  if (!doc.exists || doc.data()?.isAdmin !== true) {
+  data: SendPayload
+): Promise<SendResult> => {
+  const roles = new Set<string>(data.roles);
+  const divisions = data.divisions?.length ? new Set(data.divisions) : null;
+  const letters = data.teamLetters?.length ? new Set(data.teamLetters) : null;
+  const school = data.school || null;
+
+  // Team lookup: schoolId -> {division, teamLetter}.
+  const teamOf = await loadTeamLookup(db);
+
+  // Filter the roster in memory.
+  const peopleSnap = await db.collection("people").get();
+  const recipientIds: string[] = [];
+  for (const doc of peopleSnap.docs) {
+    const p = doc.data();
+    if (!roles.has(p.role)) continue;
+
+    const team = p.school ? teamOf.get(p.school) : undefined;
+    const division = team?.division ?? null;
+    const teamLetter = team?.teamLetter ?? null;
+
+    // Narrowing filters. Someone with no team can't match a team-based filter,
+    // so setting one excludes the teamless (Organizers, etc.).
+    if (divisions && (division === null || !divisions.has(division))) continue;
+    if (letters && (teamLetter === null || !letters.has(teamLetter))) continue;
+    if (school && p.school !== school) continue;
+
+    recipientIds.push(doc.id);
+  }
+
+  if (recipientIds.length === 0) {
     throw new HttpsError(
-      "permission-denied",
-      "You don't have permission to send notifications."
+      "failed-precondition",
+      "No one matches those recipients — adjust the roles or filters."
     );
   }
+
+  const body = data.body.trim();
+  const silent = data.silent === true;
+
+  // Record the send. recipientIds is the durable record of who it went to:
+  // message history reads it, open-tracking compares against it.
+  const announcementRef = await db.collection("announcements").add({
+    title: data.title,
+    body,
+    silent,
+    sentAt: FieldValue.serverTimestamp(),
+    recipientIds,
+  });
+
+  // Deliver to the recipients' devices.
+  const tokens = await tokensFor(db, recipientIds);
+  let delivered = 0;
+  let failed = 0;
+  if (tokens.length > 0) {
+    const res = await sendPush(
+      tokens,
+      data.title,
+      body,
+      silent,
+      announcementRef.id
+    );
+    delivered = res.delivered;
+    failed = res.failed;
+    if (res.staleDocIds.length > 0) await pruneTokens(db, res.staleDocIds);
+  }
+
+  logger.info("Notification sent", {
+    announcementId: announcementRef.id,
+    recipientCount: recipientIds.length,
+    tokenCount: tokens.length,
+    delivered,
+    failed,
+  });
+
+  return {
+    announcementId: announcementRef.id,
+    recipientCount: recipientIds.length,
+    tokenCount: tokens.length,
+    delivered,
+    failed,
+  };
 };
 
-// Reject malformed composer input before touching the database.
-const validate = (data: SendRequest): void => {
+// Reject malformed composer input before touching the database. Shared by the
+// send and schedule callables.
+export const validatePayload = (data: SendPayload): void => {
   const bad = (msg: string) => new HttpsError("invalid-argument", msg);
 
   if (!(NOTIFICATION_TITLES as readonly string[]).includes(data.title)) {

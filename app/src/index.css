@@ -469,3 +469,178 @@ body::before {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* Reference card with the gold accent bar (DESIGN.md component E) — used for
+   announcements on Home and in Previous Messages. */
+.msg {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px 12px 22px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  text-align: left;
+}
+.msg::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+}
+.msg-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.msg-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap; /* preserve line breaks the OC typed */
+}
+.msg-time {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Stacked list of message cards. */
+.msg-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* --- Admin area nav (Compose / Tracking tabs) --- */
+.admin-nav {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+}
+.admin-tab {
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.admin-tab.active {
+  outline-color: var(--accent);
+  color: var(--text);
+}
+
+/* --- Message tracking --- */
+.track-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* A selectable sent-notification row. */
+.track-item {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.track-item-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.track-detail {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.track-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.track-group {
+  width: 100%;
+}
+/* Group summary row: name on the left, opened/total (gold) on the right. */
+.track-group-head {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.track-group-name {
+  font-size: 13px;
+}
+.track-count {
+  font-family: var(--font-display);
+  color: var(--accent);
+  font-size: 15px;
+}
+/* Drill-down named list. */
+.track-names {
+  padding: 8px 14px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.track-name {
+  margin: 0;
+  font-size: 13px;
+}
+.track-name--opened {
+  color: var(--text);
+}
+.track-name--pending {
+  color: var(--text-muted);
+}

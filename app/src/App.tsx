@@ -4,11 +4,13 @@ import { auth } from "./firebase";
 import { getCachedProfile, type Profile } from "./auth";
 import { Registration } from "./screens/Registration";
 import { Home } from "./screens/Home";
+import { PreviousMessages } from "./screens/PreviousMessages";
 import { Compose } from "./screens/admin/Compose";
+import { Tracking } from "./screens/admin/Tracking";
 
 // Minimal in-app navigation. One flat view state is enough for now; swap for a
 // router if deep-linking or nested admin nav is ever needed.
-export type View = "home" | "compose";
+export type View = "home" | "previous" | "compose" | "tracking";
 
 function App() {
   // undefined = auth state not resolved yet (restoring a persisted session);
@@ -28,9 +30,15 @@ function App() {
   if (profile === undefined) return null;
   if (!profile) return <Registration />;
 
-  // Compose is admin-only; guard defensively even though the entry is gated.
+  if (view === "previous") {
+    return <PreviousMessages onBack={() => setView("home")} />;
+  }
+  // Admin pages are gated on the flag even though their entry points are hidden.
   if (view === "compose" && profile.isAdmin) {
-    return <Compose onBack={() => setView("home")} />;
+    return <Compose onNavigate={setView} />;
+  }
+  if (view === "tracking" && profile.isAdmin) {
+    return <Tracking onNavigate={setView} />;
   }
   return <Home profile={profile} onNavigate={setView} />;
 }

@@ -1,12 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { logout, type Profile } from "../auth";
 import { registerForPush } from "../fcm";
+import { recordAppOpen } from "../appOpens";
+import { loadMessages, type Message } from "../messages";
+import { MessageCard } from "../components/MessageCard";
 import type { View } from "../App";
 
 /**
- * Home — still a stub for most of PAGES.md §2 (schedule widget, latest message,
- * requests zone come later). For now it confirms the login round-trip and, when
- * the person is an admin, is the entry point into the Compose screen.
+ * Home — the hub (PAGES.md §2). Still growing: the schedule widget and requests
+ * zone come later. For now it greets the person, shows the latest announcement,
+ * and links to Previous Messages and (for admins) the Compose screen.
  */
 export function Home({
   profile,
@@ -17,20 +20,54 @@ export function Home({
 }) {
   const firstName = profile.fullName.split(" ")[0];
 
-  // Register this device for push once we're on Home and signed in.
-  // No-ops safely where push isn't available (see registerForPush).
+  // undefined = loading; null = none; Message = the latest.
+  const [latest, setLatest] = useState<Message | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState(false);
+
+  // On each Home open: register for push and stamp the open-tracking timestamp.
   useEffect(() => {
     registerForPush();
+    recordAppOpen();
+  }, []);
+
+  useEffect(() => {
+    loadMessages(1)
+      .then((m) => setLatest(m[0] ?? null))
+      .catch((e) => {
+        console.error("Failed to load latest message:", e);
+        setLoadError(true);
+        setLatest(null);
+      });
   }, []);
 
   return (
     <div className="screen">
-      <h1 className="title">Home</h1>
       <p className="greeting">Hello {firstName}</p>
       <p className="help">
         Signed in as {profile.role}
         {profile.teamLetter ? ` · Team ${profile.teamLetter}` : ""}
       </p>
+
+      <div className="field">
+        <span className="label">Latest message</span>
+        {latest === undefined ? (
+          <p className="help">Loading…</p>
+        ) : loadError ? (
+          <p className="help">Couldn't load messages. Check your connection.</p>
+        ) : latest === null ? (
+          <p className="help">No messages yet.</p>
+        ) : (
+          <MessageCard message={latest} />
+        )}
+      </div>
+
+      <button
+        className="btn"
+        type="button"
+        onClick={() => onNavigate("previous")}
+      >
+        Previous Messages
+      </button>
 
       {profile.isAdmin && (
         <button

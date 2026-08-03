@@ -12,6 +12,8 @@ import {
   type SchoolOption,
   type SendResult,
 } from "../../notifications";
+import { AdminNav } from "../../components/AdminNav";
+import type { View } from "../../App";
 
 type Phase = "edit" | "confirm" | "sending" | "sent";
 
@@ -21,7 +23,7 @@ type Phase = "edit" | "confirm" | "sending" | "sent";
  * confirm the plain-language audience, and send via the sendNotification
  * function. Only reachable behind the isAdmin gate on Home.
  */
-export function Compose({ onBack }: { onBack: () => void }) {
+export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [title, setTitle] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
@@ -100,9 +102,7 @@ export function Compose({ onBack }: { onBack: () => void }) {
   if (phase === "sent" && result) {
     return (
       <div className="screen">
-        <button className="back" type="button" onClick={onBack}>
-          ‹ Home
-        </button>
+        <AdminNav active="compose" onNavigate={onNavigate} />
         <h1 className="title">Sent</h1>
         <p className="greeting">
           Delivered to {result.recipientCount}{" "}
@@ -123,9 +123,7 @@ export function Compose({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="screen">
-      <button className="back" type="button" onClick={onBack}>
-        ‹ Home
-      </button>
+      <AdminNav active="compose" onNavigate={onNavigate} />
       <h1 className="title">Compose a Notification</h1>
 
       {/* Title — required preset pick, full-width rows */}

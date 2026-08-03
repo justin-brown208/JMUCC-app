@@ -18,6 +18,7 @@
 | `fcmTokens` | ❌ | your own device | push delivery address |
 | `appOpens` | ❌ | your own record | open-tracking timestamp |
 | `requests` | your own + (managers: your queue) | create own; cancel own; managers claim/resolve | help-desk queue tickets |
+| `scheduledNotifications` | admins only | ❌ (Functions) | pending future sends |
 
 The client is almost entirely locked out by design. Nearly everything meaningful flows through Cloud Functions.
 
@@ -148,6 +149,42 @@ tell them).
 - **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`); no other fields.
 - **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid`, only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved`, and **release** `claimed → open` (clearing `claimedBy`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
 - No client may change `queue`, `requesterId`, `createdAt`, or `position`.
+
+---
+
+## 7. `scheduledNotifications` — pending future sends
+One document per notification the OC has scheduled but not yet sent. Stores the
+compose **criteria** (never resolved recipients) plus when to fire — so targeting
+resolves fresh at fire time, exactly like an immediate send.
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | string | one of the 3 presets |
+| `body` | string | the message text |
+| `silent` | boolean | quiet toggle |
+| `roles` | array\<string\> | recipient roles (the composer expands "All Volunteers") |
+| `divisions` | array\<number\> | optional narrowing filter |
+| `teamLetters` | array\<string\> | optional narrowing filter |
+| `school` | string \| null | optional single-school filter |
+| `sendAt` | timestamp | when to fire |
+| `status` | string | `"scheduled"` → `"sent"`, or `"canceled"` / `"failed"` (transient `"sending"` while the poller is mid-fire — the atomic claim) |
+| `createdBy` | string | admin uid who scheduled it |
+| `createdAt` | timestamp | |
+| `announcementId` | string \| null | the `announcements` doc created when it fired |
+| `error` | string \| null | failure reason if `status == "failed"` |
+
+**How it fires:** a scheduled Cloud Function (`runScheduledSends`, every 1 min)
+queries `status == "scheduled" && sendAt <= now`, atomically claims each (a
+transaction flips `scheduled → sending` so overlapping runs can't double-send),
+runs the **same** targeting + FCM path as an immediate send (writing a real
+`announcement`, so history + tracking work unchanged), and marks it `sent` (with
+`announcementId`) or `failed` (with `error`).
+
+**Access: admins may read** (the Scheduled tab lists them). All writes go through
+Functions — **create** via the `scheduleNotification` callable (admin-gated,
+validates the payload and that `sendAt` is in the future), **cancel** via the
+`cancelScheduledNotification` callable (admin-gated, `scheduled → canceled` only).
+No client writes.
 
 ---
 
