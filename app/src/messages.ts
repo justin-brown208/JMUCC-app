@@ -4,9 +4,12 @@ import {
   where,
   orderBy,
   limit as fbLimit,
-  getDocs,
+  onSnapshot,
   Timestamp,
   type QueryConstraint,
+  type Unsubscribe,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 
@@ -17,17 +20,39 @@ export interface Message {
   sentAt: Date | null;
 }
 
+function toMessage(d: QueryDocumentSnapshot<DocumentData>): Message {
+  const data = d.data();
+  const ts = data.sentAt as Timestamp | undefined;
+  return {
+    id: d.id,
+    title: (data.title as string) ?? "",
+    body: (data.body as string) ?? "",
+    sentAt: ts?.toDate?.() ?? null,
+  };
+}
+
 /**
- * Load the announcements addressed to the signed-in person, newest first.
- * Pass `max` to cap the count (Home wants just the latest one).
+ * Subscribe to the announcements addressed to the signed-in person, newest
+ * first. Pass `max` to cap the count (Home wants just the latest).
  *
- * The `array-contains` + `orderBy sentAt` query is exactly what the security
- * rule permits (uid in recipientIds), and needs the composite index in
- * firestore.indexes.json.
+ * With the persistent cache enabled (firebase.ts), the first callback fires
+ * immediately from local cache on repeat visits — no waiting on the network —
+ * then updates from the server, and again whenever a new announcement lands.
+ * Returns an unsubscribe to call on unmount.
+ *
+ * The `array-contains uid` + `orderBy sentAt` query is what the security rule
+ * permits, and uses the composite index in firestore.indexes.json.
  */
-export async function loadMessages(max?: number): Promise<Message[]> {
+export function subscribeMessages(
+  max: number | undefined,
+  onData: (messages: Message[]) => void,
+  onError?: (err: unknown) => void
+): Unsubscribe {
   const uid = auth.currentUser?.uid;
-  if (!uid) return [];
+  if (!uid) {
+    onData([]);
+    return () => {};
+  }
 
   const constraints: QueryConstraint[] = [
     where("recipientIds", "array-contains", uid),
@@ -35,15 +60,12 @@ export async function loadMessages(max?: number): Promise<Message[]> {
   ];
   if (max) constraints.push(fbLimit(max));
 
-  const snap = await getDocs(query(collection(db, "announcements"), ...constraints));
-  return snap.docs.map((d) => {
-    const data = d.data();
-    const ts = data.sentAt as Timestamp | undefined;
-    return {
-      id: d.id,
-      title: (data.title as string) ?? "",
-      body: (data.body as string) ?? "",
-      sentAt: ts?.toDate?.() ?? null,
-    };
-  });
+  return onSnapshot(
+    query(collection(db, "announcements"), ...constraints),
+    (snap) => onData(snap.docs.map(toMessage)),
+    (err) => {
+      console.error("Message subscription error:", err);
+      onError?.(err);
+    }
+  );
 }

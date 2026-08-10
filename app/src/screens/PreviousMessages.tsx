@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { loadMessages, type Message } from "../messages";
+import { subscribeMessages, type Message } from "../messages";
 import { MessageCard } from "../components/MessageCard";
 
 /**
@@ -10,12 +10,11 @@ export function PreviousMessages({ onBack }: { onBack: () => void }) {
   const [messages, setMessages] = useState<Message[] | undefined>(undefined);
 
   useEffect(() => {
-    loadMessages()
-      .then(setMessages)
-      .catch((e) => {
-        console.error("Failed to load messages:", e);
-        setMessages([]);
-      });
+    return subscribeMessages(
+      undefined,
+      setMessages,
+      () => setMessages([])
+    );
   }, []);
 
   return (

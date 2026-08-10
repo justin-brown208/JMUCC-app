@@ -1,7 +1,11 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 // Public Firebase web config. These values are client identifiers, not secrets —
 // they ship in every web build. Security is enforced by Firestore rules + Auth,
@@ -24,9 +28,15 @@ export const auth = getAuth(app);
 // Region MUST match the Cloud Functions deploy region (functions/src/index.ts).
 export const functions = getFunctions(app, "northamerica-northeast1");
 
-// Firestore client — used only for the few things the client may write
-// (its own fcmToken, its own appOpens). Everything sensitive goes via Functions.
-export const db = getFirestore(app);
+// Firestore client with a persistent (IndexedDB) cache, so reads paint
+// instantly from local cache on repeat visits and refresh from the server in
+// the background. Multi-tab manager lets tabs (e.g. admin + delegate) share one
+// cache. Falls back to an in-memory cache where IndexedDB is unavailable.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
 
 // Web Push (VAPID) public key from the Firebase console → Cloud Messaging →
 // Web Push certificates. A public identifier like the rest of this config —

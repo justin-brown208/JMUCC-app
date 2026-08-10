@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { logout, type Profile } from "../auth";
 import { registerForPush } from "../fcm";
 import { recordAppOpen } from "../appOpens";
-import { loadMessages, type Message } from "../messages";
+import { subscribeMessages, type Message } from "../messages";
 import { MessageCard } from "../components/MessageCard";
+import { ScheduleWidget } from "../components/ScheduleWidget";
 import type { View } from "../App";
 
 /**
@@ -31,13 +32,14 @@ export function Home({
   }, []);
 
   useEffect(() => {
-    loadMessages(1)
-      .then((m) => setLatest(m[0] ?? null))
-      .catch((e) => {
-        console.error("Failed to load latest message:", e);
-        setLoadError(true);
-        setLatest(null);
-      });
+    return subscribeMessages(
+      1,
+      (msgs) => {
+        setLatest(msgs[0] ?? null);
+        setLoadError(false);
+      },
+      () => setLoadError(true)
+    );
   }, []);
 
   return (
@@ -47,6 +49,11 @@ export function Home({
         Signed in as {profile.role}
         {profile.teamLetter ? ` · Team ${profile.teamLetter}` : ""}
       </p>
+
+      <ScheduleWidget
+        profile={profile}
+        onViewFullWeek={() => onNavigate("fullweek")}
+      />
 
       <div className="field">
         <span className="label">Latest message</span>

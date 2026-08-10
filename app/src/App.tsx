@@ -8,12 +8,14 @@ import { PreviousMessages } from "./screens/PreviousMessages";
 import { Compose } from "./screens/admin/Compose";
 import { Tracking } from "./screens/admin/Tracking";
 import { Scheduled } from "./screens/admin/Scheduled";
+import { FullWeek } from "./screens/FullWeek";
 
 // Minimal in-app navigation. One flat view state is enough for now; swap for a
 // router if deep-linking or nested admin nav is ever needed.
 export type View =
   | "home"
   | "previous"
+  | "fullweek"
   | "compose"
   | "tracking"
   | "scheduled";
@@ -38,6 +40,9 @@ function App() {
 
   if (view === "previous") {
     return <PreviousMessages onBack={() => setView("home")} />;
+  }
+  if (view === "fullweek") {
+    return <FullWeek onBack={() => setView("home")} />;
   }
   // Admin pages are gated on the flag even though their entry points are hidden.
   if (view === "compose" && profile.isAdmin) {

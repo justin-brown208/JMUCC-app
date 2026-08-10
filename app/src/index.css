@@ -546,6 +546,93 @@ body::before {
   gap: 12px;
 }
 
+/* --- Home schedule widget (calendar) --- */
+.cal {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* Featured (current/next) event — the hero (DESIGN.md component F). */
+.cal-featured {
+  text-align: left;
+}
+.cal-when {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cal-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.05;
+  color: var(--text);
+}
+/* Featured event description — wraps, preserves the OC's line breaks. */
+.cal-desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: pre-line;
+}
+/* Later events — smaller rows beneath the hero. */
+.cal-upcoming {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cal-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+/* Title + description stacked on the left; min-width:0 lets the desc truncate. */
+.cal-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cal-row-title {
+  font-size: 14px;
+  color: var(--text);
+}
+/* Row description — one truncated line so rows stay compact. */
+.cal-row-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Keep the time from being squeezed by a long title/description. */
+.cal-row .meta {
+  flex-shrink: 0;
+}
+
+/* --- Full Week schedule image viewer --- */
+.fullweek-viewer {
+  width: 100%;
+  height: 70vh;
+  overflow: hidden;
+  background: var(--surface);
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+}
+.fullweek-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 /* Scheduled-send row: title + status pill on one line, then details. */
 .sched-head {
   display: flex;
