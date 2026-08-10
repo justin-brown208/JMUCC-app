@@ -54,4 +54,8 @@ export const people = [
 
   // Extra coach at Alpha — gives Alpha a fuller roster for targeting tests
   { id: "test-coach-alpha-2",     fullName: "Cory Coach",     role: "Coach",             pin: "100014", school: "test-school-alpha", isAdmin: false },
+
+  // VP Academics — an OC member carrying the managesAcademicQueue flag (works
+  // the academic request queue). "VP Academics" isn't a role; flag ≠ isAdmin.
+  { id: "test-vp-academics",      fullName: "Vera VP",        role: "Organizer",         pin: "100015", school: null, isAdmin: false, managesAcademicQueue: true },
 ];

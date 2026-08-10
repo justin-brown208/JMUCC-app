@@ -30,3 +30,4 @@ export {
   cancelScheduledNotification,
   runScheduledSends,
 } from "./scheduling.js";
+export {onRequestWrite} from "./requests.js";

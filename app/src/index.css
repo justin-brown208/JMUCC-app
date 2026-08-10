@@ -293,6 +293,27 @@ body::before {
   opacity: 0.4;
 }
 
+/* Single-line text input (DESIGN.md component D). */
+.text-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.text-input::placeholder {
+  color: var(--text-muted);
+}
+.text-input:focus {
+  outline-color: var(--accent);
+}
+
 /* Multiline input (DESIGN.md component D). */
 .textarea {
   width: 100%;
@@ -544,6 +565,76 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* --- My Requests strip (Home) --- */
+.myreq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.myreq {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.myreq-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.myreq-queue {
+  font-size: 13px;
+  color: var(--text);
+}
+/* Live position — gold, the figure the requester is watching (component H). */
+.myreq-position {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--accent);
+}
+
+/* --- My Queue worker tickets --- */
+.qticket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.qticket-head .msg-title {
+  margin: 0;
+}
+.qticket-status {
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  font-size: 11px;
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text-muted);
+}
+/* A claimed ticket ("on it") reads gold; an open one waits, muted. */
+.qticket-status--claimed {
+  outline-color: var(--accent);
+  color: var(--accent);
+}
+.qticket-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.qticket-actions .btn-primary,
+.qticket-actions .btn-reset {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
 }
 
 /* --- Home schedule widget (calendar) --- */

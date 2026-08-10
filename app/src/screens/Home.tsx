@@ -5,25 +5,32 @@ import { recordAppOpen } from "../appOpens";
 import { subscribeMessages, type Message } from "../messages";
 import { MessageCard } from "../components/MessageCard";
 import { ScheduleWidget } from "../components/ScheduleWidget";
+import { MyRequests } from "../components/MyRequests";
+import { submittableQueues, workedQueue, QUEUE_META, type QueueId } from "../requests";
 import type { View } from "../App";
 
 /**
- * Home — the hub (PAGES.md §2). Still growing: the schedule widget and requests
- * zone come later. For now it greets the person, shows the latest announcement,
- * and links to Previous Messages and (for admins) the Compose screen.
+ * Home — the hub (PAGES.md §2): greeting, schedule widget, latest announcement,
+ * the requests zone (submit buttons + My Requests strip), and links out to
+ * Previous Messages, My Queue (workers), and Admin.
  */
 export function Home({
   profile,
   onNavigate,
+  onSubmitRequest,
 }: {
   profile: Profile;
   onNavigate: (view: View) => void;
+  onSubmitRequest: (queue: QueueId) => void;
 }) {
   const firstName = profile.fullName.split(" ")[0];
 
   // undefined = loading; null = none; Message = the latest.
   const [latest, setLatest] = useState<Message | null | undefined>(undefined);
   const [loadError, setLoadError] = useState(false);
+
+  const canSubmit = submittableQueues(profile);
+  const worksQueue = workedQueue(profile);
 
   // On each Home open: register for push and stamp the open-tracking timestamp.
   useEffect(() => {
@@ -68,6 +75,19 @@ export function Home({
         )}
       </div>
 
+      {/* Requests zone — submit buttons (eligible submitters) + My Requests. */}
+      {canSubmit.map((q) => (
+        <button
+          key={q}
+          className="btn"
+          type="button"
+          onClick={() => onSubmitRequest(q)}
+        >
+          {QUEUE_META[q].submitLabel}
+        </button>
+      ))}
+      <MyRequests />
+
       <button
         className="btn"
         type="button"
@@ -75,6 +95,16 @@ export function Home({
       >
         Previous Messages
       </button>
+
+      {worksQueue && (
+        <button
+          className="btn"
+          type="button"
+          onClick={() => onNavigate("queue")}
+        >
+          My Queue
+        </button>
+      )}
 
       {profile.isAdmin && (
         <button

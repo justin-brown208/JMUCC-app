@@ -77,6 +77,29 @@ service cloud.firestore {
       return ts is timestamp && ts == request.time;
     }
 
+    // The caller's own people doc data (role, flags, name). Same get()-on-people
+    // trick as isAdmin() — reads a doc the client itself cannot read — used to
+    // gate request submit/work by role + the managesAcademicQueue flag.
+    function me() {
+      return get(/databases/$(database)/documents/people/$(request.auth.uid)).data;
+    }
+
+    // May the caller SUBMIT to this queue? The 5 volunteer roles → any queue;
+    // Coaches → academic only; Delegates/Organizers → none.
+    function canSubmitTo(queue) {
+      return me().role in ['Presentation Room Coordinator', 'Team Ambassador',
+          'Tech Volunteer', 'General Volunteer', 'Runner']
+        || (me().role == 'Coach' && queue == 'academic');
+    }
+
+    // Does the caller WORK this queue? tech → Tech Volunteer; runner → Runner;
+    // academic → the managesAcademicQueue flag (absent treated as false).
+    function isQueueWorker(queue) {
+      return (queue == 'tech' && me().role == 'Tech Volunteer')
+        || (queue == 'runner' && me().role == 'Runner')
+        || (queue == 'academic' && me().get('managesAcademicQueue', false) == true);
+    }
+
     // -----------------------------------------------------------
     // Domain validators
     // -----------------------------------------------------------
@@ -93,6 +116,27 @@ service cloud.firestore {
     function isValidAppOpen(data) {
       return data.keys().hasOnly(['lastOpenedAt'])
         && isNow(data.lastOpenedAt);
+    }
+
+    // requests: a new "call me" ticket. The requester provides only their own
+    // fields; the manager/position/close fields are absent on create (the
+    // trigger adds position, claim/resolve add the rest). status starts 'open'.
+    function isValidNewRequest(d) {
+      return d.keys().hasOnly(['queue', 'requesterId', 'requesterName',
+          'phone', 'room', 'description', 'status', 'createdAt'])
+        && d.keys().hasAll(['queue', 'requesterId', 'requesterName',
+          'phone', 'status', 'createdAt'])
+        && d.queue in ['academic', 'tech', 'runner']
+        && d.requesterId == request.auth.uid
+        && d.requesterName is string && d.requesterName.size() > 0
+        && d.requesterName.size() < 120
+        && d.phone is string && d.phone.size() > 0 && d.phone.size() < 40
+        && (!('room' in d.keys()) || d.room == null
+          || (d.room is string && d.room.size() < 60))
+        && (!('description' in d.keys()) || d.description == null
+          || (d.description is string && d.description.size() < 300))
+        && d.status == 'open'
+        && isNow(d.createdAt);
     }
 
     // -----------------------------------------------------------
@@ -151,6 +195,62 @@ service cloud.firestore {
     match /appOpens/{personId} {
       allow read: if false;
       allow create, update: if isOwner(personId) && isValidAppOpen(request.resource.data);
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------
+    // requests — help-desk queue tickets. Requester sees their own; a queue
+    // worker sees tickets in the queue they work. Create is requester-only and
+    // role-gated; the state transitions (cancel / claim / resolve / release)
+    // are each an atomic, field-scoped update. position is set only by the
+    // trigger (Admin SDK), never by a client. See SCHEMA.md §6.
+    // -----------------------------------------------------------
+    match /requests/{id} {
+      allow read: if isAuthenticated()
+        && (resource.data.requesterId == request.auth.uid
+          || isQueueWorker(resource.data.queue));
+
+      allow create: if isAuthenticated()
+        && isValidNewRequest(request.resource.data)
+        && request.resource.data.requesterName == me().fullName
+        && canSubmitTo(request.resource.data.queue);
+
+      allow update: if isAuthenticated() && (
+        // Cancel — requester pulls their own still-active ticket.
+        (resource.data.requesterId == request.auth.uid
+          && resource.data.status in ['open', 'claimed']
+          && request.resource.data.status == 'canceled'
+          && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'closedAt'])
+          && isNow(request.resource.data.closedAt))
+        ||
+        // Claim — worker takes an open ticket (atomic: only from 'open').
+        (isQueueWorker(resource.data.queue)
+          && resource.data.status == 'open'
+          && request.resource.data.status == 'claimed'
+          && request.resource.data.claimedBy == request.auth.uid
+          && isNow(request.resource.data.claimedAt)
+          && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'claimedBy', 'claimedAt']))
+        ||
+        // Resolve — worker closes a claimed ticket.
+        (isQueueWorker(resource.data.queue)
+          && resource.data.status == 'claimed'
+          && request.resource.data.status == 'resolved'
+          && isNow(request.resource.data.closedAt)
+          && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'closedAt']))
+        ||
+        // Release/drop — worker un-claims back to the pool (any queue worker).
+        (isQueueWorker(resource.data.queue)
+          && resource.data.status == 'claimed'
+          && request.resource.data.status == 'open'
+          && request.resource.data.claimedBy == null
+          && request.resource.data.claimedAt == null
+          && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'claimedBy', 'claimedAt']))
+      );
+
       allow delete: if false;
     }
 

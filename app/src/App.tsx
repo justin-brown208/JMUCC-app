@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { getCachedProfile, type Profile } from "./auth";
+import type { QueueId } from "./requests";
 import { Registration } from "./screens/Registration";
 import { Home } from "./screens/Home";
 import { PreviousMessages } from "./screens/PreviousMessages";
@@ -9,6 +10,8 @@ import { Compose } from "./screens/admin/Compose";
 import { Tracking } from "./screens/admin/Tracking";
 import { Scheduled } from "./screens/admin/Scheduled";
 import { FullWeek } from "./screens/FullWeek";
+import { SubmitRequest } from "./screens/SubmitRequest";
+import { MyQueue } from "./screens/MyQueue";
 
 // Minimal in-app navigation. One flat view state is enough for now; swap for a
 // router if deep-linking or nested admin nav is ever needed.
@@ -16,6 +19,8 @@ export type View =
   | "home"
   | "previous"
   | "fullweek"
+  | "submit"
+  | "queue"
   | "compose"
   | "tracking"
   | "scheduled";
@@ -25,6 +30,8 @@ function App() {
   // null = signed out; Profile = signed in.
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [view, setView] = useState<View>("home");
+  // Which queue a "Submit a Request" screen is for (fixed by the tapped button).
+  const [submitQueue, setSubmitQueue] = useState<QueueId | null>(null);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -38,11 +45,28 @@ function App() {
   if (profile === undefined) return null;
   if (!profile) return <Registration />;
 
+  const goSubmit = (queue: QueueId) => {
+    setSubmitQueue(queue);
+    setView("submit");
+  };
+
   if (view === "previous") {
     return <PreviousMessages onBack={() => setView("home")} />;
   }
   if (view === "fullweek") {
     return <FullWeek onBack={() => setView("home")} />;
+  }
+  if (view === "submit" && submitQueue) {
+    return (
+      <SubmitRequest
+        profile={profile}
+        queue={submitQueue}
+        onBack={() => setView("home")}
+      />
+    );
+  }
+  if (view === "queue") {
+    return <MyQueue profile={profile} onBack={() => setView("home")} />;
   }
   // Admin pages are gated on the flag even though their entry points are hidden.
   if (view === "compose" && profile.isAdmin) {
@@ -54,7 +78,9 @@ function App() {
   if (view === "scheduled" && profile.isAdmin) {
     return <Scheduled onNavigate={setView} />;
   }
-  return <Home profile={profile} onNavigate={setView} />;
+  return (
+    <Home profile={profile} onNavigate={setView} onSubmitRequest={goSubmit} />
+  );
 }
 
 export default App;
