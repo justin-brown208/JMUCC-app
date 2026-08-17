@@ -8,6 +8,7 @@
     "outDir": "lib",
     "rootDir": "src",
     "sourceMap": true,
+    "skipLibCheck": true,
     "strict": true,
     "target": "es2017"
   },

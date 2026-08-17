@@ -31,3 +31,4 @@ export {
   runScheduledSends,
 } from "./scheduling.js";
 export {onRequestWrite} from "./requests.js";
+export {searchDocuments} from "./search.js";

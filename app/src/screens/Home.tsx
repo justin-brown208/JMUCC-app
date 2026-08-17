@@ -91,6 +91,14 @@ export function Home({
       <button
         className="btn"
         type="button"
+        onClick={() => onNavigate("rules")}
+      >
+        Competition Rules
+      </button>
+
+      <button
+        className="btn"
+        type="button"
         onClick={() => onNavigate("previous")}
       >
         Previous Messages

@@ -724,6 +724,17 @@ body::before {
   height: auto;
 }
 
+/* Full-document PDF viewer (§6): the browser renders the PDF inside this. */
+.pdf-frame {
+  width: 100%;
+  height: 75vh;
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  background: var(--surface);
+}
+
 /* Scheduled-send row: title + status pill on one line, then details. */
 .sched-head {
   display: flex;

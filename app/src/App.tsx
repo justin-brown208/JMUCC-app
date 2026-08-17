@@ -12,6 +12,9 @@ import { Scheduled } from "./screens/admin/Scheduled";
 import { FullWeek } from "./screens/FullWeek";
 import { SubmitRequest } from "./screens/SubmitRequest";
 import { MyQueue } from "./screens/MyQueue";
+import { RulesSearch } from "./screens/RulesSearch";
+import { PdfViewer } from "./screens/PdfViewer";
+import type { SourceDoc } from "./searchConfig";
 
 // Minimal in-app navigation. One flat view state is enough for now; swap for a
 // router if deep-linking or nested admin nav is ever needed.
@@ -21,6 +24,8 @@ export type View =
   | "fullweek"
   | "submit"
   | "queue"
+  | "rules"
+  | "pdf"
   | "compose"
   | "tracking"
   | "scheduled";
@@ -32,6 +37,8 @@ function App() {
   const [view, setView] = useState<View>("home");
   // Which queue a "Submit a Request" screen is for (fixed by the tapped button).
   const [submitQueue, setSubmitQueue] = useState<QueueId | null>(null);
+  // Which PDF the full-document viewer (§6) is showing.
+  const [pdfDoc, setPdfDoc] = useState<SourceDoc>("rulebook");
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -67,6 +74,20 @@ function App() {
   }
   if (view === "queue") {
     return <MyQueue profile={profile} onBack={() => setView("home")} />;
+  }
+  if (view === "rules") {
+    return (
+      <RulesSearch
+        onBack={() => setView("home")}
+        onOpenPdf={(doc) => {
+          setPdfDoc(doc);
+          setView("pdf");
+        }}
+      />
+    );
+  }
+  if (view === "pdf") {
+    return <PdfViewer doc={pdfDoc} onBack={() => setView("rules")} />;
   }
   // Admin pages are gated on the flag even though their entry points are hidden.
   if (view === "compose" && profile.isAdmin) {

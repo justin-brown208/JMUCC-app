@@ -188,6 +188,29 @@ No client writes.
 
 ---
 
+## Storage — source PDFs (not Firestore)
+
+The document-search feature (PAGES.md §4–5) reads two **static PDFs** from
+Firebase Storage, uploaded once by the OC via the Firebase console before the
+event:
+
+| Object path | Meaning |
+| --- | --- |
+| `documents/rulebook.pdf` | Competition rulebook |
+| `documents/faq.pdf` | FAQ |
+
+**Access: `documents/**` is publicly readable, no client write** (`storage.rules`).
+The content isn't secret — the viewer (PAGES.md §6) hands over the whole PDF — so
+both consumers use the same object: the `searchDocuments` callable reads it
+server-side via the Admin SDK, and the client viewer loads its public download
+URL. Paths are hardcoded in `functions/src/search.ts` (`DOCS`) and the public
+URLs in the client search config. PDFs must be **text-based** (not scanned
+images) — the search extracts their text with `unpdf`, and a scan yields nothing
+to quote. OC uploads both via the Firebase console; only `documents/` is exposed
+(everything else in Storage is denied).
+
+---
+
 > **No `pinAttempts` / rate-limiting.** We deliberately do **not** throttle or
 > lock out PIN attempts (decision 2026-07-18). Trade-off accepted: an unthrottled
 > endpoint can be brute-forced by a script (500 live PINs in a 6-digit space ≈ 1
