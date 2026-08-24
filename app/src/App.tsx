@@ -11,24 +11,49 @@ import { Tracking } from "./screens/admin/Tracking";
 import { Scheduled } from "./screens/admin/Scheduled";
 import { FullWeek } from "./screens/FullWeek";
 import { SubmitRequest } from "./screens/SubmitRequest";
-import { MyQueue } from "./screens/MyQueue";
+import { Requests } from "./screens/Requests";
 import { RulesSearch } from "./screens/RulesSearch";
 import { PdfViewer } from "./screens/PdfViewer";
+import { BottomNav, type TabId } from "./components/BottomNav";
+import { NotificationGate } from "./components/NotificationGate";
 import type { SourceDoc } from "./searchConfig";
 
-// Minimal in-app navigation. One flat view state is enough for now; swap for a
-// router if deep-linking or nested admin nav is ever needed.
+// A View is a concrete screen. Several views belong to one bottom-bar tab (e.g.
+// the submit form and My Queue both live under the Requests tab); VIEW_TAB maps
+// each view to the tab that should read active, and TAB_ROOT the reverse — the
+// screen a tab lands on when tapped.
 export type View =
   | "home"
-  | "previous"
   | "fullweek"
-  | "submit"
-  | "queue"
   | "rules"
   | "pdf"
+  | "messages"
+  | "requests"
+  | "submit"
   | "compose"
-  | "tracking"
-  | "scheduled";
+  | "scheduled"
+  | "tracking";
+
+const VIEW_TAB: Record<View, TabId> = {
+  home: "home",
+  fullweek: "home",
+  rules: "rules",
+  pdf: "rules",
+  messages: "messages",
+  requests: "requests",
+  submit: "requests",
+  compose: "admin",
+  scheduled: "admin",
+  tracking: "admin",
+};
+
+const TAB_ROOT: Record<TabId, View> = {
+  home: "home",
+  rules: "rules",
+  messages: "messages",
+  requests: "requests",
+  admin: "compose",
+};
 
 function App() {
   // undefined = auth state not resolved yet (restoring a persisted session);
@@ -57,50 +82,63 @@ function App() {
     setView("submit");
   };
 
-  if (view === "previous") {
-    return <PreviousMessages onBack={() => setView("home")} />;
+  const screen = renderView();
+
+  function renderView() {
+    switch (view) {
+      case "fullweek":
+        return <FullWeek onBack={() => setView("home")} />;
+      case "rules":
+        return (
+          <RulesSearch
+            onOpenPdf={(doc) => {
+              setPdfDoc(doc);
+              setView("pdf");
+            }}
+          />
+        );
+      case "pdf":
+        return <PdfViewer doc={pdfDoc} onBack={() => setView("rules")} />;
+      case "messages":
+        return <PreviousMessages />;
+      case "requests":
+        return <Requests profile={profile!} onOpenSubmit={goSubmit} />;
+      case "submit":
+        return submitQueue ? (
+          <SubmitRequest
+            profile={profile!}
+            queue={submitQueue}
+            onBack={() => setView("requests")}
+          />
+        ) : (
+          <Requests profile={profile!} onOpenSubmit={goSubmit} />
+        );
+      // Admin pages are gated on the flag even though their tab is hidden.
+      case "compose":
+        return profile!.isAdmin ? <Compose onNavigate={setView} /> : home();
+      case "tracking":
+        return profile!.isAdmin ? <Tracking onNavigate={setView} /> : home();
+      case "scheduled":
+        return profile!.isAdmin ? <Scheduled onNavigate={setView} /> : home();
+      default:
+        return home();
+    }
   }
-  if (view === "fullweek") {
-    return <FullWeek onBack={() => setView("home")} />;
+
+  function home() {
+    return <Home profile={profile!} onOpenFullWeek={() => setView("fullweek")} />;
   }
-  if (view === "submit" && submitQueue) {
-    return (
-      <SubmitRequest
-        profile={profile}
-        queue={submitQueue}
-        onBack={() => setView("home")}
-      />
-    );
-  }
-  if (view === "queue") {
-    return <MyQueue profile={profile} onBack={() => setView("home")} />;
-  }
-  if (view === "rules") {
-    return (
-      <RulesSearch
-        onBack={() => setView("home")}
-        onOpenPdf={(doc) => {
-          setPdfDoc(doc);
-          setView("pdf");
-        }}
-      />
-    );
-  }
-  if (view === "pdf") {
-    return <PdfViewer doc={pdfDoc} onBack={() => setView("rules")} />;
-  }
-  // Admin pages are gated on the flag even though their entry points are hidden.
-  if (view === "compose" && profile.isAdmin) {
-    return <Compose onNavigate={setView} />;
-  }
-  if (view === "tracking" && profile.isAdmin) {
-    return <Tracking onNavigate={setView} />;
-  }
-  if (view === "scheduled" && profile.isAdmin) {
-    return <Scheduled onNavigate={setView} />;
-  }
+
   return (
-    <Home profile={profile} onNavigate={setView} onSubmitRequest={goSubmit} />
+    <div className="app-shell has-nav">
+      {screen}
+      <BottomNav
+        profile={profile}
+        active={VIEW_TAB[view]}
+        onSelect={(tab) => setView(TAB_ROOT[tab])}
+      />
+      <NotificationGate />
+    </div>
   );
 }
 

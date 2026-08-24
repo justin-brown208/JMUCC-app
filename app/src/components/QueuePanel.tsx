@@ -1,60 +1,47 @@
 import { useEffect, useState } from "react";
-import type { Profile } from "../auth";
 import {
-  workedQueue,
   subscribeQueue,
   claimRequest,
   resolveRequest,
   dropRequest,
-  QUEUE_META,
+  type QueueId,
   type RequestTicket,
 } from "../requests";
 
 /**
- * My Queue (PAGES.md §10) — a queue worker sees and works their queue: the
- * active tickets oldest-first with full detail (incl. phone), and claim /
- * resolve / drop actions. Which queue is fixed by the worker's role/flag.
+ * The live worker view of a queue: active tickets oldest-first with full detail
+ * (incl. phone) and the work actions. Rendered inline as the main content of the
+ * Requests tab for a worker (PAGES.md §10).
+ *
+ * The academic queue is special: it's worked by exactly one person (the VP
+ * Academics), so there's no claiming — tickets are theirs by default and they
+ * just resolve them. `noClaim` drops the Claim/Drop controls and the status pill.
  */
-export function MyQueue({
-  profile,
-  onBack,
-}: {
-  profile: Profile;
-  onBack: () => void;
-}) {
-  const queue = workedQueue(profile);
+export function QueuePanel({ queue }: { queue: QueueId }) {
   const [tickets, setTickets] = useState<RequestTicket[] | undefined>(undefined);
+  const noClaim = queue === "academic";
 
-  useEffect(() => {
-    if (!queue) return;
-    return subscribeQueue(queue, setTickets);
-  }, [queue]);
+  useEffect(() => subscribeQueue(queue, setTickets), [queue]);
+
+  if (tickets === undefined) return <p className="help">Loading…</p>;
+  if (tickets.length === 0) return <p className="help">Nothing waiting. 🎉</p>;
 
   return (
-    <div className="screen">
-      <button className="back" type="button" onClick={onBack}>
-        ‹ Home
-      </button>
-      <h1 className="title">{queue ? QUEUE_META[queue].workerTitle : "My Queue"}</h1>
-
-      {!queue ? (
-        <p className="help">You don't work a queue.</p>
-      ) : tickets === undefined ? (
-        <p className="help">Loading…</p>
-      ) : tickets.length === 0 ? (
-        <p className="help">Nothing waiting. 🎉</p>
-      ) : (
-        <div className="msg-list">
-          {tickets.map((t) => (
-            <QueueTicket key={t.id} ticket={t} />
-          ))}
-        </div>
-      )}
+    <div className="msg-list">
+      {tickets.map((t) => (
+        <QueueTicket key={t.id} ticket={t} noClaim={noClaim} />
+      ))}
     </div>
   );
 }
 
-function QueueTicket({ ticket }: { ticket: RequestTicket }) {
+function QueueTicket({
+  ticket,
+  noClaim,
+}: {
+  ticket: RequestTicket;
+  noClaim: boolean;
+}) {
   const [busy, setBusy] = useState(false);
 
   async function act(fn: (id: string) => Promise<void>) {
@@ -71,14 +58,16 @@ function QueueTicket({ ticket }: { ticket: RequestTicket }) {
     <article className="msg">
       <div className="qticket-head">
         <h3 className="msg-title">{ticket.requesterName}</h3>
-        <span
-          className={
-            "qticket-status qticket-status--" +
-            (ticket.status === "claimed" ? "claimed" : "open")
-          }
-        >
-          {ticket.status === "claimed" ? "Claimed" : "Open"}
-        </span>
+        {!noClaim && (
+          <span
+            className={
+              "qticket-status qticket-status--" +
+              (ticket.status === "claimed" ? "claimed" : "open")
+            }
+          >
+            {ticket.status === "claimed" ? "Claimed" : "Open"}
+          </span>
+        )}
       </div>
       <p className="msg-body">{ticket.description || "Call me"}</p>
       <p className="meta">
@@ -87,7 +76,17 @@ function QueueTicket({ ticket }: { ticket: RequestTicket }) {
       </p>
 
       <div className="qticket-actions">
-        {ticket.status === "open" ? (
+        {noClaim ? (
+          // Academic: no claim step — resolve straight from open.
+          <button
+            className="btn-primary"
+            type="button"
+            disabled={busy}
+            onClick={() => act(resolveRequest)}
+          >
+            Resolve
+          </button>
+        ) : ticket.status === "open" ? (
           <button
             className="btn-primary"
             type="button"

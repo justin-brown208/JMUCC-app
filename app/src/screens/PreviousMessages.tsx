@@ -6,7 +6,7 @@ import { MessageCard } from "../components/MessageCard";
  * Previous Messages (PAGES.md §3) — the full history of announcements this
  * person has received, newest first, each shown in full inline.
  */
-export function PreviousMessages({ onBack }: { onBack: () => void }) {
+export function PreviousMessages({ onBack }: { onBack?: () => void }) {
   const [messages, setMessages] = useState<Message[] | undefined>(undefined);
 
   useEffect(() => {
@@ -19,9 +19,11 @@ export function PreviousMessages({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="screen">
-      <button className="back" type="button" onClick={onBack}>
-        ‹ Home
-      </button>
+      {onBack && (
+        <button className="back" type="button" onClick={onBack}>
+          ‹ Home
+        </button>
+      )}
       <h1 className="title">Previous Messages</h1>
 
       {messages === undefined ? (

@@ -5,32 +5,25 @@ import { recordAppOpen } from "../appOpens";
 import { subscribeMessages, type Message } from "../messages";
 import { MessageCard } from "../components/MessageCard";
 import { ScheduleWidget } from "../components/ScheduleWidget";
-import { MyRequests } from "../components/MyRequests";
-import { submittableQueues, workedQueue, QUEUE_META, type QueueId } from "../requests";
-import type { View } from "../App";
 
 /**
- * Home — the hub (PAGES.md §2): greeting, schedule widget, latest announcement,
- * the requests zone (submit buttons + My Requests strip), and links out to
- * Previous Messages, My Queue (workers), and Admin.
+ * Home tab — the dashboard (PAGES.md §2): a greeting (tap to reveal Log out),
+ * the schedule widget, and the latest announcement. All navigation now lives in
+ * the bottom bar, so Home is content-only.
  */
 export function Home({
   profile,
-  onNavigate,
-  onSubmitRequest,
+  onOpenFullWeek,
 }: {
   profile: Profile;
-  onNavigate: (view: View) => void;
-  onSubmitRequest: (queue: QueueId) => void;
+  onOpenFullWeek: () => void;
 }) {
   const firstName = profile.fullName.split(" ")[0];
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // undefined = loading; null = none; Message = the latest.
   const [latest, setLatest] = useState<Message | null | undefined>(undefined);
   const [loadError, setLoadError] = useState(false);
-
-  const canSubmit = submittableQueues(profile);
-  const worksQueue = workedQueue(profile);
 
   // On each Home open: register for push and stamp the open-tracking timestamp.
   useEffect(() => {
@@ -51,16 +44,26 @@ export function Home({
 
   return (
     <div className="screen">
-      <p className="greeting">Hello {firstName}</p>
-      <p className="help">
-        Signed in as {profile.role}
-        {profile.teamLetter ? ` · Team ${profile.teamLetter}` : ""}
-      </p>
+      <button
+        className="greeting-btn"
+        type="button"
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((o) => !o)}
+      >
+        <span className="greeting">Hello {firstName}</span>
+        <span className="help">
+          {profile.role}
+          {profile.teamLetter ? ` · Team ${profile.teamLetter}` : ""}
+        </span>
+      </button>
 
-      <ScheduleWidget
-        profile={profile}
-        onViewFullWeek={() => onNavigate("fullweek")}
-      />
+      {menuOpen && (
+        <button className="btn-secondary" type="button" onClick={() => logout()}>
+          Log out
+        </button>
+      )}
+
+      <ScheduleWidget profile={profile} onViewFullWeek={onOpenFullWeek} />
 
       <div className="field">
         <span className="label">Latest message</span>
@@ -74,59 +77,6 @@ export function Home({
           <MessageCard message={latest} />
         )}
       </div>
-
-      {/* Requests zone — submit buttons (eligible submitters) + My Requests. */}
-      {canSubmit.map((q) => (
-        <button
-          key={q}
-          className="btn"
-          type="button"
-          onClick={() => onSubmitRequest(q)}
-        >
-          {QUEUE_META[q].submitLabel}
-        </button>
-      ))}
-      <MyRequests />
-
-      <button
-        className="btn"
-        type="button"
-        onClick={() => onNavigate("rules")}
-      >
-        Competition Rules
-      </button>
-
-      <button
-        className="btn"
-        type="button"
-        onClick={() => onNavigate("previous")}
-      >
-        Previous Messages
-      </button>
-
-      {worksQueue && (
-        <button
-          className="btn"
-          type="button"
-          onClick={() => onNavigate("queue")}
-        >
-          My Queue
-        </button>
-      )}
-
-      {profile.isAdmin && (
-        <button
-          className="btn"
-          type="button"
-          onClick={() => onNavigate("compose")}
-        >
-          Admin
-        </button>
-      )}
-
-      <button className="btn-secondary" type="button" onClick={() => logout()}>
-        Log out
-      </button>
     </div>
   );
 }

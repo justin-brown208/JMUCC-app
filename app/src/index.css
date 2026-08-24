@@ -143,19 +143,23 @@ body::before {
   color: var(--text-muted);
 }
 
-/* Full-width action button (component C): muted-outline surface, display label. */
+/* Action button (component C): no fill — a transparent, outlined control whose
+   outline color carries state (muted = secondary). Sized to its content and
+   centered, so an action reads as an action, not a filled content card. */
 .btn {
-  width: 100%;
+  align-self: center;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
-  padding: 15px;
-  background: var(--surface);
+  padding: 13px 30px;
+  background: none;
   border: none;
   border-radius: var(--radius);
   outline: 1px solid var(--text-muted);
   outline-offset: -1px;
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
@@ -187,12 +191,29 @@ body::before {
   color: var(--accent);
 }
 
-/* Home greeting (temporary — stub screen). */
+/* Home dashboard greeting — the whole block is a button that toggles Log out. */
+.greeting-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
 .greeting {
   margin: 0;
-  font-size: 13px;
-  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
   color: var(--text);
+}
+.greeting-btn .help {
+  text-align: left;
 }
 
 /* --- Form building blocks (composer, and reused elsewhere) --- */
@@ -232,12 +253,12 @@ body::before {
   margin-top: 20px;
 }
 
-/* Selectable item (DESIGN.md component A/B). Unselected reads as muted — text
-   AND outline the same gray. Selected lifts to white text + gold outline. This
-   coloring is shared by chips and full-width option rows. */
+/* Selectable item (DESIGN.md component A/B). No fill — unselected reads as muted
+   (text AND outline the same gray), selected lifts to white text + gold outline.
+   Matches the outlined-action language; shared by chips and full-width rows. */
 .chip,
 .option-row {
-  background: var(--surface);
+  background: none;
   border: none;
   border-radius: var(--radius);
   outline: 1px solid var(--text-muted);
@@ -427,26 +448,48 @@ body::before {
   width: 100%;
 }
 
-/* Filled-gold primary action — the one emphatic button per screen. */
+/* Primary action — the one emphatic button per screen. No fill either; its
+   emphasis comes from a GOLD outline + gold label (the outline-encodes-
+   importance grammar). Standalone it sizes to content and centers (like .btn);
+   inside a .button-row it reverts to flex:2 via the override below. */
 .btn-primary {
+  align-self: center;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   flex: 2;
-  padding: 15px;
-  background: var(--accent);
+  padding: 13px 30px;
+  background: none;
   border: none;
   border-radius: var(--radius);
-  color: var(--on-accent);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  color: var(--accent);
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-/* When not ready, drop to an inert outlined state so it doesn't invite a tap. */
+/* In a shared row, flex sizing wins — clear the standalone centering/min-width. */
+.button-row .btn-primary,
+.button-row .btn-reset {
+  align-self: auto;
+  min-width: 0;
+}
+
+/* Outlined actions that ride together on one centered row (e.g. the Rules
+   screen's Full Rulebook · Full FAQ). */
+.action-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+/* When not ready, drop to an inert muted outline so it doesn't invite a tap. */
 .btn-primary:disabled {
-  background: var(--surface);
-  outline: 1px solid var(--text-muted);
-  outline-offset: -1px;
+  outline-color: var(--text-muted);
   color: var(--text-muted);
   cursor: default;
 }
@@ -454,7 +497,7 @@ body::before {
 /* Outlined counterpart that rides alongside the primary (Reset / Back). */
 .btn-reset {
   flex: 1;
-  padding: 15px;
+  padding: 13px;
   background: none;
   border: none;
   border-radius: var(--radius);
@@ -462,7 +505,7 @@ body::before {
   outline-offset: -1px;
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
@@ -633,6 +676,8 @@ body::before {
 .qticket-actions .btn-primary,
 .qticket-actions .btn-reset {
   flex: 1;
+  align-self: auto;
+  min-width: 0;
   padding: 10px;
   font-size: 14px;
 }
@@ -644,9 +689,14 @@ body::before {
   flex-direction: column;
   gap: 16px;
 }
-/* Featured (current/next) event — the hero (DESIGN.md component F). */
+/* Featured (current/next) event — the hero (DESIGN.md component F). Same
+   gray-outlined card as the later entries, sized up for the hero content. */
 .cal-featured {
   text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
 }
 .cal-when {
   margin: 0 0 4px;
@@ -676,13 +726,16 @@ body::before {
   flex-direction: column;
   gap: 8px;
 }
+/* Each later event is its own gray-outlined card, so entries read as distinct. */
 .cal-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
 }
 /* Title + description stacked on the left; min-width:0 lets the desc truncate. */
 .cal-row-main {
@@ -883,4 +936,171 @@ body::before {
 }
 .track-name--pending {
   color: var(--text-muted);
+}
+
+/* --- Bottom navigation (persistent tab bar) --- */
+/* app-shell is layout-transparent (display:contents) so #root still centers the
+   .screen; it exists only to hang the "reserve space for the fixed bar" rule. */
+.app-shell {
+  display: contents;
+}
+.app-shell.has-nav .screen {
+  padding-bottom: 104px; /* clear the fixed bar so content never hides under it */
+}
+
+/* Fixed to the viewport bottom, capped to the app column and centered. Sits on
+   the dark end of the gradient with a hairline top edge. */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 390px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: #000;
+  z-index: 10;
+}
+/* Scrim above the bar: content fades to black as it approaches the nav, so the
+   solid black bar reads as an extension of the page rather than a hard edge. */
+.bottom-nav::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, #000);
+  pointer-events: none;
+}
+
+/* One tab: stacked icon + label, flat, color carries state (gold vs muted). */
+.nav-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 2px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-item svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+.nav-item--active {
+  color: var(--accent);
+}
+/* Gold tick-bar on the active tab (echoes the accent-bar motif, component E). */
+.nav-tick {
+  position: absolute;
+  top: 0;
+  width: 22px;
+  height: 2px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.nav-item--active .nav-tick {
+  background: var(--accent);
+}
+
+/* Blocking new-message modal (NotificationGate) — covers everything, including
+   the bottom nav (z-index 10), until dismissed. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+/* One clean panel — no inner cards. Header is the message's own title. */
+.modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 22px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+}
+/* Subtle corner dismiss (also dismissable by tapping the backdrop). */
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-close svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+/* The notification's title, as the block header (display, gold, uppercase). */
+.modal-title {
+  margin: 0;
+  padding-right: 24px; /* clear the corner X */
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.modal-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap; /* preserve the line breaks the OC typed */
+}
+
+/* De-emphasized submit buttons on the Requests tab (queue workers rarely
+   self-submit): compact, auto-width chips in a wrapping row. */
+.submit-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-small {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  outline: 1px solid var(--text-muted);
+  outline-offset: -1px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-small:active {
+  outline-color: var(--accent);
 }

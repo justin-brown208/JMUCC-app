@@ -14,7 +14,7 @@ export function RulesSearch({
   onBack,
   onOpenPdf,
 }: {
-  onBack: () => void;
+  onBack?: () => void;
   onOpenPdf: (doc: SourceDoc) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -47,9 +47,11 @@ export function RulesSearch({
 
   return (
     <div className="screen">
-      <button className="back" type="button" onClick={onBack}>
-        ‹ Home
-      </button>
+      {onBack && (
+        <button className="back" type="button" onClick={onBack}>
+          ‹ Home
+        </button>
+      )}
       <h1 className="title">Competition Rules</h1>
       <p className="help">Ask something!</p>
 
@@ -94,16 +96,22 @@ export function RulesSearch({
 
       <div className="divider" />
 
-      <button
-        className="btn"
-        type="button"
-        onClick={() => onOpenPdf("rulebook")}
-      >
-        Full Rulebook
-      </button>
-      <button className="btn" type="button" onClick={() => onOpenPdf("faq")}>
-        Full FAQ
-      </button>
+      <div className="action-row">
+        <button
+          className="btn"
+          type="button"
+          onClick={() => onOpenPdf("rulebook")}
+        >
+          Full Rulebook
+        </button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => onOpenPdf("faq")}
+        >
+          Full FAQ
+        </button>
+      </div>
     </div>
   );
 }
