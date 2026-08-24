@@ -115,7 +115,7 @@ optional short note plus a phone number to reach the requester.
 | `phone` | string | number to call back; saved locally on the client so it's typed once |
 | `room` | string \| null | prompted every submit, may be blank |
 | `description` | string \| null | optional, short (≤ ~200 chars) |
-| `status` | string | `"open"` → `"claimed"` → `"resolved"`, or `"canceled"`. A worker may also **release** `"claimed"` → `"open"` (un-claim, back into the pool) |
+| `status` | string | `"open"` → `"claimed"` → `"resolved"`, or `"canceled"`. A worker may also **release** `"claimed"` → `"open"` (un-claim, back into the pool). **Exception — `academic`:** worked by one person (the VP), so there's no claim step; the VP resolves straight from `"open"` → `"resolved"` (no `"claimed"` state) |
 | `position` | number \| null | live FIFO rank among still-active tickets in the queue; **computed server-side**; null once closed |
 | `createdAt` | timestamp | submit time; the FIFO ordering key |
 | `claimedBy` | string \| null | manager's person id, set on claim |
@@ -148,6 +148,7 @@ tell them).
 - **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`).
 - **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`); no other fields.
 - **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid`, only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved`, and **release** `claimed → open` (clearing `claimedBy`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
+- **Resolve (academic):** the `academic` queue has a single worker (the VP), so there's no claim step — the VP may transition `open → resolved` directly (a dedicated rule branch, `queue == "academic"` only). Tech/runner still go through `claimed → resolved`.
 - No client may change `queue`, `requesterId`, `createdAt`, or `position`.
 
 ---

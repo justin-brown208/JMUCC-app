@@ -51,25 +51,30 @@ the viewport so it fills the screen and survives scroll. *(Already implemented i
 
 ## 2. Components
 
-**A. Surface — the universal primitive.** `surface` fill + 9px radius + 1px inset
-outline. Resized, it *becomes* an input, a chip, a button, or a card — consistency
-from the recipe, hierarchy from the outline color (gold = important, muted =
-passive). Large content boxes swap the fill to `surface-raised` to stand off the gradient.
+**A. Surface — the universal primitive.** 9px radius + 1px inset outline, with or
+without a fill. **Passive surfaces carry the `surface` fill** — content cards and
+text-entry inputs. **Tap-to-act / tap-to-select surfaces drop the fill** — buttons,
+chips, and option rows are transparent and rely on the outline alone. Either way,
+hierarchy comes from the outline color (gold = important/selected, muted =
+passive/unselected). Large content boxes swap the fill to `surface-raised` to
+stand off the gradient.
 
 **B. Selector chip strip.** Small surfaces (~28px tall, muted outline, centered
 body text) in a horizontally-scrolling row. For multi-value pickers where every
 option shows at once: recipient roles, Division (1–6), Team Letter (A–D).
 
-**C. Action buttons — one primary, filled; the rest outlined.** Full column
-width (~48px tall), centered display label.
-- **Primary (filled gold):** the single emphatic action on a screen — Send,
-  Submit, Confirm. Solid `accent` fill with a dark (`on-accent`) label. Disabled
-  → drops to the inert muted-outline look so it doesn't invite a tap.
-- **Secondary (outlined):** everything else — navigation / "open the full record"
-  / Reset / Back — a muted-outline surface with a white label (Competition Rules,
-  Previous Messages, Full Rulebook, Full FAQ).
-- A primary + its outlined partner can **share a row** (Send wider than Reset);
-  otherwise buttons stack vertically.
+**C. Action buttons — outlined, never filled.** Transparent 9px surfaces sized to
+their label (dynamic width) and centered, so an action reads as a discrete control
+rather than a content card. ~44px tall, centered display label. State lives in the
+outline + label color:
+- **Primary (gold):** the single emphatic action on a screen — Send, Submit,
+  Confirm — a **gold** outline + gold label. Disabled → drops to a muted outline +
+  muted label so it doesn't invite a tap.
+- **Secondary (muted):** everything else — navigation / "open the full record" /
+  Reset / Back — a **muted** outline + white label (Full Rulebook, Full FAQ, etc.).
+- A primary + its outlined partner can **share a row** (Send wider than Reset), or
+  outlined actions can sit together on one centered row (`.action-row`); otherwise
+  they stack.
 
 **D. Labeled input field.** Muted-outline surface (tall for multiline, short for
 single-line) under a muted label. White text, muted placeholder. A **dropdown**
@@ -104,10 +109,11 @@ Request rows are otherwise built from **E** (accent-bar card) + **G** (meta) wit
 - **One accent, used sparingly.** Gold only for titles, active outlines, list
   bars, carets, and dividers. Passive-but-functional = muted; readable-and-primary
   = white. **Blue is structure, never emphasis.**
-- **State = outline + label swap; fills stay flat.** Selection/importance trades
-  a muted outline (and muted label) for a gold outline (and white label) on the
-  *same* surface. No hover fills, no color washes. **One exception:** the primary
-  action button is a deliberate gold *fill* — the single filled surface per screen.
+- **State = outline + label swap; no fills on controls.** Selection/importance
+  trades a muted outline (and muted label) for a gold outline (and white or gold
+  label) on the *same* transparent surface. No hover fills, no color washes. Fills
+  are reserved for **passive** surfaces — content cards and text-entry inputs;
+  everything you tap (buttons, chips, option rows) is outline-only.
 - **Hierarchy = typeface + case, not size alone.** Condensed uppercase = a heading
   or button; sentence-case Montserrat = content; muted Montserrat = a label or an
   inactive control.
@@ -122,7 +128,7 @@ Request rows are otherwise built from **E** (accent-bar card) + **G** (meta) wit
 ## 4. When to reach for what
 - Need input? → **D** (label + muted-outline box).
 - Need a set of picks visible at once? → **B** chips in a strip.
-- Need to send / navigate / open a full record? → **C** full-width button.
+- Need to send / navigate / open a full record? → **C** outlined button (gold = primary, muted = secondary).
 - Need to flag the important selectable item or the live draft? → same surface, **gold** outline (**A**).
 - Serving read-only reference entries? → **E** cards with the gold accent bar.
 - Featuring the current event? → **F** hero, white, over a gold eyebrow.

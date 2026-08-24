@@ -104,8 +104,9 @@ const notifyForTransition = async (
     return;
   }
 
-  // Resolve — push the requester it's done.
-  if (before.status === "claimed" && after.status === "resolved") {
+  // Resolve — push the requester it's done. Covers claimed→resolved (tech /
+  // runner) and open→resolved (academic, which has no claim step).
+  if (after.status === "resolved") {
     await pushToPersonIds(db, [after.requesterId], {
       title: "Request resolved",
       body: "Your request has been marked resolved.",

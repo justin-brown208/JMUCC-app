@@ -241,6 +241,16 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data)
               .affectedKeys().hasOnly(['status', 'closedAt']))
         ||
+        // Resolve (academic) — the single VP works it with no claim step, so
+        // they resolve straight from 'open'.
+        (resource.data.queue == 'academic'
+          && isQueueWorker('academic')
+          && resource.data.status == 'open'
+          && request.resource.data.status == 'resolved'
+          && isNow(request.resource.data.closedAt)
+          && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'closedAt']))
+        ||
         // Release/drop — worker un-claims back to the pool (any queue worker).
         (isQueueWorker(resource.data.queue)
           && resource.data.status == 'claimed'
