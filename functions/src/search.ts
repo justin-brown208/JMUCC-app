@@ -29,10 +29,22 @@ import {extractText, getDocumentProxy} from "unpdf";
 
 const OPENROUTER_KEY = defineSecret("OPENROUTER_API_KEY");
 
-// Model slugs are OpenRouter IDs — swap freely, no code change. Primary is
-// tried first; the fallback runs only if the primary call throws.
-const PRIMARY_MODEL = "anthropic/claude-sonnet-5";
-const FALLBACK_MODEL = "openai/gpt-5";
+// Model slugs are OpenRouter IDs — swap freely, no code change. Tried in
+// order; the next one runs only if the previous call throws. Haiku leads
+// because this is an extraction task, not a reasoning one, and the verbatim
+// substring guard below already blocks anything it might invent — so the
+// cheaper model risks worse *ranking*, never a bad quote.
+//
+// NOTE: both entries are Anthropic, so an Anthropic-wide outage takes the
+// feature down. Append "openai/gpt-5" here to restore cross-provider cover.
+const MODELS = ["anthropic/claude-haiku-4.5", "anthropic/claude-sonnet-5"];
+
+// Cache breakpoint marker for the document prefix (see callModel). The bare
+// ephemeral form is the 5-minute window: 1.25x to write, 0.1x to read. For a
+// 1-hour window add `ttl: "1h"` here — that doubles the write cost but
+// survives quiet stretches. 5m suits bursty use (a room full of people asking
+// during one session), which is how this app gets used.
+const CACHE_CONTROL: {type: "ephemeral"; ttl?: string} = {type: "ephemeral"};
 
 // The two static source PDFs. OC uploads these to Storage (Firebase console)
 // before the event; `id` is the client-facing key, `path` the Storage object.
@@ -113,21 +125,75 @@ const parseCitations = (raw: string): unknown[] => {
   }
 };
 
-// One chat call through OpenRouter. Returns the raw message content.
+// A text content part carrying OpenRouter's cache_control marker. The OpenAI
+// SDK's own part type has no such field (it's an Anthropic-via-OpenRouter
+// extension), so we describe it here and cast at the call site rather than
+// loosening the whole request to `any`.
+interface CachedTextPart {
+  type: "text";
+  text: string;
+  cache_control?: {type: "ephemeral"; ttl?: string};
+}
+
+/**
+ * One chat call through OpenRouter.
+ *
+ * The document text is by far the biggest thing we send (~8k tokens) and it is
+ * byte-identical on every query, so it goes in its own content part marked
+ * `cache_control` — a cache breakpoint. Anthropic caches the whole prefix up to
+ * and including that part (system prompt + documents), and the question, which
+ * changes every time, sits AFTER it so it can never disturb the cached bytes.
+ *
+ * Cache reads bill at 0.1x input, writes at 1.25x (5m) — so this pays for
+ * itself as soon as a second question arrives inside the TTL window.
+ *
+ * Caching is a strict prefix match: if you edit SYSTEM_PROMPT or the docs load
+ * in a different order, the next call simply misses and re-writes the cache.
+ * Nothing breaks, it just costs full price until the prefix settles again.
+ */
 const callModel = async (
   client: OpenAI,
   model: string,
-  userContent: string
+  docsBlob: string,
+  question: string
 ): Promise<string> => {
+  const parts: CachedTextPart[] = [
+    {
+      type: "text",
+      text: docsBlob,
+      cache_control: CACHE_CONTROL,
+    },
+    {type: "text", text: `Question: ${question}`},
+  ];
+
   const res = await client.chat.completions.create({
     model,
     temperature: 0,
     response_format: {type: "json_object"},
     messages: [
       {role: "system", content: SYSTEM_PROMPT},
-      {role: "user", content: userContent},
+      // Cast: cache_control is an OpenRouter extension the SDK type omits.
+      {
+        role: "user",
+        content: parts as unknown as
+          OpenAI.Chat.ChatCompletionContentPart[],
+      },
     ],
   });
+
+  // Log what the cache actually did. If `cached` stays 0 across repeated
+  // questions, the prefix is being invalidated somewhere and the saving is
+  // not happening — that's the number to look at, not the bill.
+  const usage = res.usage as (typeof res.usage & {
+    prompt_tokens_details?: {cached_tokens?: number};
+  }) | undefined;
+  logger.info("Search model call", {
+    model,
+    promptTokens: usage?.prompt_tokens,
+    cachedTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    completionTokens: usage?.completion_tokens,
+  });
+
   return res.choices[0]?.message?.content ?? "";
 };
 
@@ -160,30 +226,37 @@ export const searchDocuments = onCall(
     }
 
     // Only include the docs that exist, so the model never sees an empty one.
-    const userContent = [
-      ...DOCS.filter((d) => texts[d.id]).map(
-        (d) => `[${d.label.toUpperCase()}]\n${texts[d.id]}`
-      ),
-      `Question: ${query}`,
-    ].join("\n\n");
+    // The question is NOT part of this blob — it's appended after the cache
+    // breakpoint in callModel. Iterating DOCS (a fixed const) rather than
+    // Object.keys keeps the order deterministic, which the prefix cache
+    // depends on. Uploading the FAQ mid-event changes this blob once; the
+    // next call re-writes the cache and carries on.
+    const docsBlob = DOCS.filter((d) => texts[d.id])
+      .map((d) => `[${d.label.toUpperCase()}]\n${texts[d.id]}`)
+      .join("\n\n");
 
     const client = new OpenAI({
       apiKey: OPENROUTER_KEY.value(),
       baseURL: "https://openrouter.ai/api/v1",
     });
 
-    // Primary, then fallback. If both fail it's a real outage → surface it.
+    // Each model in turn; the next runs only if the previous throws. If every
+    // one fails it's a real outage → surface it.
     let raw = "";
-    try {
-      raw = await callModel(client, PRIMARY_MODEL, userContent);
-    } catch (primaryErr) {
-      logger.warn("Primary model failed; trying fallback.", primaryErr);
+    let failure: unknown;
+    for (const model of MODELS) {
       try {
-        raw = await callModel(client, FALLBACK_MODEL, userContent);
-      } catch (fallbackErr) {
-        logger.error("Both models failed.", fallbackErr);
-        throw new HttpsError("unavailable", "Search is temporarily down.");
+        raw = await callModel(client, model, docsBlob, query);
+        failure = undefined;
+        break;
+      } catch (err) {
+        failure = err;
+        logger.warn(`Model ${model} failed; trying the next.`, err);
       }
+    }
+    if (failure) {
+      logger.error("Every model failed.", failure);
+      throw new HttpsError("unavailable", "Search is temporarily down.");
     }
 
     // Verify each candidate quote is a real span of its source; drop the rest.
