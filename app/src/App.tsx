@@ -129,8 +129,12 @@ function App() {
     return <Home profile={profile!} onOpenFullWeek={() => setView("fullweek")} />;
   }
 
+  // Full-bleed screens (the schedule poster) drop the nav's fade scrim so it
+  // can't darken their artwork; everything else keeps it.
+  const immersive = view === "fullweek";
+
   return (
-    <div className="app-shell has-nav">
+    <div className={"app-shell has-nav" + (immersive ? " immersive" : "")}>
       {screen}
       <BottomNav
         profile={profile}

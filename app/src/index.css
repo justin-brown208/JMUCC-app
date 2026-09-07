@@ -41,6 +41,10 @@
 
   /* Dark label color for text sitting on the gold accent (filled primary). */
   --on-accent: #10233f;
+
+  /* Height of the fixed bottom nav (8px pad + 44px tab + 8px pad + safe area).
+     Full-bleed screens subtract this so nothing hides behind the bar. */
+  --nav-height: calc(60px + env(safe-area-inset-bottom));
 }
 
 /* Solid fallback so the status-bar and home-indicator areas are never white,
@@ -761,20 +765,65 @@ body::before {
   flex-shrink: 0;
 }
 
-/* --- Full Week schedule image viewer --- */
-.fullweek-viewer {
-  width: 100%;
-  height: 70vh;
+/* --- Full Week schedule image viewer ---
+   The one screen that ignores the centered `.screen` column: the poster is the
+   content, so the viewer is pinned to the viewport and runs edge to edge,
+   stopping only at the top of the bottom nav (--nav-height). */
+.fullweek {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--nav-height);
   overflow: hidden;
-  background: var(--surface);
-  border-radius: var(--radius);
-  outline: 1px solid var(--text-muted);
-  outline-offset: -1px;
 }
+/* react-zoom-pan-pinch's two layers: the pannable window, then the transformed
+   content. Both must fill so the image centers in the whole area, not in a
+   shrink-wrapped box. */
+.fullweek-wrapper,
+.fullweek-content {
+  width: 100% !important;
+  height: 100% !important;
+}
+.fullweek-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Fit the whole poster on entry; zoom takes it from there. */
 .fullweek-img {
   display: block;
   max-width: 100%;
-  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+/* The only chrome: a back chip floating over the image, kept legible on light
+   or dark artwork by its own dark pill rather than by the page behind it. */
+.fullweek-back {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  z-index: 2;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fullweek-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
 }
 
 /* Full-document PDF viewer (§6): the browser renders the PDF inside this. */
@@ -975,6 +1024,11 @@ body::before {
   height: 40px;
   background: linear-gradient(to bottom, transparent, #000);
   pointer-events: none;
+}
+/* Full-bleed screens run their content right up to the bar, so the fade would
+   darken the artwork's bottom edge instead of the page background. */
+.app-shell.immersive .bottom-nav::before {
+  content: none;
 }
 
 /* One tab: stacked icon + label, flat, color carries state (gold vs muted). */
