@@ -1,9 +1,10 @@
 # dev-seed — TEST DATA TOOLING (DELETE BEFORE GO-LIVE)
 
 > ⚠️ **This entire folder is throwaway, development-only tooling.**
-> It exists so we can put ~14 fake people and 2 fake schools into Firestore and
-> exercise login, notification targeting, and the calendar before the real
-> roster exists. **None of this ships to production.** See "Go-live" below.
+> It exists so we can put fake people and fake schools into Firestore and
+> exercise login, notification targeting, the calendar, and the request queues
+> before the real roster exists. **None of this ships to production.** See
+> "Go-live" below.
 
 Everything it creates has an ID starting with **`test-`**, so it is easy to spot
 in the Firebase console and safe to bulk-delete.
@@ -12,15 +13,30 @@ in the Firebase console and safe to bulk-delete.
 
 ## What it creates
 
-- **2 schools** in different divisions/letters (Alpha = Div 1 / Team A, Beta =
-  Div 2 / Team B), with the ceremony mapping already filled in so team
-  resolution works end to end.
-- **14 people** covering all 8 roles, with extra delegates/coaches per school so
-  targeting has something to filter. One Organizer has `isAdmin: true`.
+This is built to run [`TESTING.md`](../TESTING.md), which has two parts needing
+**different app roles for the same 10 people**.
 
-Exact data lives in [`seed-data.mjs`](seed-data.mjs). PINs are simple sequential
-test values starting at **`100001`** (easy to type during development). The real
-roster gets proper PINs later.
+- **3 schools**, ceremony mapping already filled in so team resolution works end
+  to end: Alpha (Div 1 / Team A), Beta (Div 2 / Team B), Crossfield (Div 1 /
+  Team B). Crossfield exists to decorrelate division from team letter — with
+  only Alpha and Beta, "division 1" and "letter A" select the identical people,
+  so a swapped field would pass every test.
+- **One of two casts of 11 people**, chosen when you run the seeder:
+  - `part1` (PINs `100001`+) — notification targeting: delegates spread across
+    all three schools, two coaches, a Team Ambassador, three teamless volunteers
+    as the negative control, one `isAdmin` sender, one unmanned 5th volunteer role.
+  - `part2` (PINs `200001`+) — runner / tech queues: three tech volunteers, two
+    runners, three pure-submitter volunteers, a coach, a delegate, and an
+    unmanned academic-queue holder.
+
+**Only one cast is in Firestore at a time.** Seeding a cast deletes every other
+`test-` person. They cannot coexist: both use the same role values, so a Part 1
+send targeting "Delegate" would also match the Part 2 delegate and every
+expected recipient count in TESTING.md Part 1 would be wrong — and that count is
+itself under test.
+
+Exact data lives in [`seed-data.mjs`](seed-data.mjs). The real roster gets
+proper PINs later.
 
 ---
 
@@ -52,15 +68,16 @@ npm install
 
 ## Run it
 
-**Seed** (add the test data):
+**Seed** (add the test data — pick the cast for the part you're running):
 
 ```bash
-node seed.mjs
-# or: npm run seed
+node seed.mjs part1     # or: npm run seed:part1
+node seed.mjs part2     # or: npm run seed:part2
 ```
 
-It prints a table of test PINs → who they are when done. Re-running is safe — it
-overwrites the same documents.
+It prints the schools plus a cheat sheet of PIN → which tester holds it → who
+they are in the app. Re-running is safe, and switching casts mid-session is just
+running the other command (then everyone logs out and back in).
 
 **Purge** (remove the test data — see Go-live):
 
