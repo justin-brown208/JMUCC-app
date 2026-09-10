@@ -5,8 +5,7 @@
   "type": "module",
   "description": "DEV ONLY throwaway seeding for JMUCC. Delete before go-live.",
   "scripts": {
-    "seed:part1": "node seed.mjs part1",
-    "seed:part2": "node seed.mjs part2",
+    "seed": "node seed.mjs",
     "purge": "node purge.mjs"
   },
   "dependencies": {

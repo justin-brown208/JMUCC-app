@@ -8,8 +8,9 @@
 // seeded data even if seed-data.mjs was edited. Real (non-"test-") documents
 // are never touched.
 //
-// NOTE: this does NOT clear `announcements`, `fcmTokens`, `appOpens`, or
-// `pinAttempts` — those accumulate at runtime while you test the app. See
+// NOTE: this does NOT clear `announcements`, `fcmTokens`, `appOpens`,
+// `requests` or `scheduledNotifications` — those accumulate at runtime while
+// you test the app, and they survive a reseed. See
 // README.md ("Full go-live cleanup") for clearing them.
 // ===========================================================================
 

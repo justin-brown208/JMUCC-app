@@ -7,14 +7,33 @@
 //
 // This mirrors SCHEMA.md. If SCHEMA.md changes, change this too.
 //
-// Built to run TESTING.md, which has two parts with DIFFERENT app roles for the
-// same 10 people, under separate PIN blocks (Part 1 = 1000xx, Part 2 = 2000xx).
+// ONE CAST OF 10, seeded once before the session and never touched again.
+// Each tester holds a single PIN for the whole of TESTING.md — notification
+// targeting and the request queues both run against this same roster, so
+// nobody logs out mid-session and there is no reseed between the two parts.
 //
-// ONLY ONE CAST IS IN FIRESTORE AT A TIME. `node seed.mjs part1` writes the
-// Part 1 cast and removes the Part 2 one, and vice versa. They cannot coexist:
-// both casts use the same role values, so a Part 1 send targeting "Delegate"
-// would also match the Part 2 delegate and every recipient count in TESTING.md
-// Part 1 would be wrong — and that count is itself under test.
+// The consequence that shapes every seat below: a send's audience is exactly
+// the set of phones in the room. There are no unmanned identities padding the
+// count, so every number on the confirmation screen is directly checkable
+// against who actually buzzes.
+//
+// The tight part is fitting both parts' needs into 10 seats. What forced the
+// shape:
+//   - Both flags sit on the sender. isAdmin and managesAcademicQueue are
+//     independent of role (SCHEMA.md), so the one Organizer carries both:
+//     he sends every notification AND works the academic queue. That frees a
+//     seat and still leaves an Organizer as the "not a volunteer role" control.
+//   - Two tech volunteers, not three. Two is the minimum that tests both an
+//     atomic claim race and "a worker who didn't claim it can still drop it".
+//   - One runner. Runner and tech are the same collection, trigger and panel,
+//     so runner only needs a confirmation pass; a lone worker can still walk
+//     claim -> drop -> re-claim -> resolve.
+//   - Two delegates, and the coach moved to Crossfield. Three delegates would
+//     cost a volunteer seat. Targeting "Delegate + Coach" instead of "Delegate"
+//     keeps the division-vs-letter split just as sharp (the coach becomes the
+//     person in both sets) — see TESTING.md T5/T6.
+// That buys all five volunteer roles on real phones, which is what makes the
+// "All Volunteers" shortcut fail by name instead of by a low count.
 //
 // The `tester` field is NOT written to Firestore; seed.mjs strips it and only
 // uses it to print the who-holds-what cheat sheet.
@@ -42,77 +61,49 @@ export const schools = [
 // Fields per SCHEMA.md: fullName, role, pin (6-digit string), school (id|null),
 // isAdmin (bool), managesAcademicQueue (bool, optional). Document ID doubles as
 // the person's future auth uid.
+export const people = [
+  // The sender, and the academic queue's one worker. Both flags on one person,
+  // neither implied by the role (SCHEMA.md): isAdmin opens the Admin panel,
+  // managesAcademicQueue opens the Rules Questions queue. As an Organizer he
+  // may submit to nothing — the only seat where work-rights and submit-rights
+  // disagree — and he is the control proving Organizer is NOT a volunteer role.
+  { id: "test-organizer",       tester: "Justin",   fullName: "Olivia Organizer", role: "Organizer", pin: "100001", school: null, isAdmin: true, managesAcademicQueue: true },
 
-// PART 1 — notification targeting (TESTING.md Part 1). PINs 100001+.
-// Shaped so every targeting filter has both people who should receive and
-// people who should not: three delegates spread across the three schools, two
-// coaches, one ambassador (a volunteer role that still carries a school), and
-// three teamless volunteers as the negative control for team filters.
-export const peopleP1 = [
-  // Delegates — one per school, so division and letter filters split them
-  { id: "test-p1-delegate-alpha",      tester: "Fabricio", fullName: "Ada Delegate",    role: "Delegate", pin: "100001", school: "test-school-alpha",      isAdmin: false },
-  { id: "test-p1-delegate-beta",       tester: "Aaron",    fullName: "Grace Delegate",  role: "Delegate", pin: "100002", school: "test-school-beta",       isAdmin: false },
-  { id: "test-p1-delegate-crossfield", tester: "Lina",   fullName: "Cleo Delegate",   role: "Delegate", pin: "100003", school: "test-school-crossfield", isAdmin: false },
+  // Delegates — two schools, two divisions, two letters. Cannot submit to any
+  // queue and must not see a Requests tab at all.
+  { id: "test-delegate-alpha",  tester: "Fabricio", fullName: "Ada Delegate",    role: "Delegate", pin: "100002", school: "test-school-alpha", isAdmin: false },
+  { id: "test-delegate-beta",   tester: "Aaron",    fullName: "Grace Delegate",  role: "Delegate", pin: "100003", school: "test-school-beta",  isAdmin: false },
 
-  // Coaches — Alpha and Beta
-  { id: "test-p1-coach-alpha",         tester: "Rachel",     fullName: "Coach Alpha",     role: "Coach",    pin: "100004", school: "test-school-alpha",      isAdmin: false },
-  { id: "test-p1-coach-beta",          tester: null,     fullName: "Coach Beta",      role: "Coach",    pin: "100005", school: "test-school-beta",       isAdmin: false },
+  // Coach at Crossfield — division 1 like Alpha, letter B like Beta, so this
+  // is the seat that appears in BOTH the division-1 and letter-B results and
+  // proves the two filters are reading different fields (TESTING.md T5/T6).
+  // Also the restricted submitter: academic queue only, nothing else.
+  { id: "test-coach-crossfield", tester: "Rachel",  fullName: "Casey Coach",     role: "Coach",    pin: "100004", school: "test-school-crossfield", isAdmin: false },
 
   // Team Ambassador — a VOLUNTEER role that still carries a school ("the team
   // I'm assigned to"). The load-bearing seat: "All Volunteers" must reach this
-  // person AND so must "letter A".
-  { id: "test-p1-ambassador-alpha",    tester: "Laetitia", fullName: "Amir Ambassador", role: "Team Ambassador", pin: "100006", school: "test-school-alpha", isAdmin: false },
+  // person AND so must "letter A", and the team comes from the school lookup
+  // rather than any field on the person.
+  { id: "test-ambassador",      tester: "Laetitia", fullName: "Amir Ambassador", role: "Team Ambassador", pin: "100005", school: "test-school-alpha", isAdmin: false },
 
-  // Teamless volunteers — the control group. Any division/letter/school filter
-  // that reaches these three is a bug.
-  { id: "test-p1-tech",                tester: null,   fullName: "Tia Tech",        role: "Tech Volunteer",    pin: "100007", school: null, isAdmin: false },
-  { id: "test-p1-runner",              tester: "Tyson",    fullName: "Remy Runner",     role: "Runner",            pin: "100008", school: null, isAdmin: false },
-  { id: "test-p1-general",             tester: null,  fullName: "Gene General",    role: "General Volunteer", pin: "100009", school: null, isAdmin: false },
+  // Tech queue workers. Two is deliberate and is the minimum: the atomic-claim
+  // race needs two tapping at once, and the loser then proves that a worker who
+  // did NOT claim a ticket can still drop it back to the pool.
+  { id: "test-tech-1",          tester: "Meriem",   fullName: "Tia Tech",        role: "Tech Volunteer", pin: "100006", school: null, isAdmin: false },
+  { id: "test-tech-2",          tester: "Tara",     fullName: "Theo Tech",       role: "Tech Volunteer", pin: "100007", school: null, isAdmin: false },
 
-  // The sender (isAdmin decoupled from role, per SCHEMA.md)
-  { id: "test-p1-organizer",           tester: "Justin",   fullName: "Olivia Organizer", role: "Organizer", pin: "100010", school: null, isAdmin: true },
+  // Runner queue worker — sole holder, which is enough because runner is the
+  // same code path as tech. Also a submitter to tech, which is how a worker
+  // gets to be a requester somewhere else.
+  { id: "test-runner",          tester: "Tyson",    fullName: "Remy Runner",     role: "Runner",         pin: "100008", school: null, isAdmin: false },
 
-  // UNMANNED — the 5th volunteer role. Nobody logs in as Riya; the "All
-  // Volunteers" shortcut is confirmed to include this seat via the admin
-  // audience confirmation / Tracking list rather than a phone.
-  { id: "test-p1-room",                tester: null,       fullName: "Riya Room",       role: "Presentation Room Coordinator", pin: "100011", school: null, isAdmin: false },
+  // The last two volunteer roles. They work no queue, so they may submit to all
+  // three, and together with the seats above every one of the five volunteer
+  // roles is on a real phone for the "All Volunteers" shortcut.
+  { id: "test-general",         tester: "Lina",     fullName: "Gene General",    role: "General Volunteer", pin: "100009", school: null, isAdmin: false },
+  { id: "test-room",            tester: "Shehroz",  fullName: "Riya Room",       role: "Presentation Room Coordinator", pin: "100010", school: null, isAdmin: false },
 ];
 
-// PART 2 — runner / tech queues (TESTING.md Part 2). PINs 200001+.
-// Same 10 people, different app roles, because queue submitters and workers
-// have to be volunteers. THREE tech volunteers is deliberate: atomic claim
-// needs two tapping at once, and "any worker can free an abandoned claim"
-// needs a third who didn't claim it.
-//
-// The only managesAcademicQueue holder here is unmanned, so the coach's
-// academic ticket is meant to sit unworked (TESTING.md Q11).
-export const peopleP2 = [
-  // Tech queue workers
-  { id: "test-p2-tech-1",     tester: "Justin",   fullName: "Theo Tech",      role: "Tech Volunteer", pin: "200001", school: null, isAdmin: false },
-  { id: "test-p2-tech-2",     tester: "Fabricio", fullName: "Tess Tech",      role: "Tech Volunteer", pin: "200002", school: null, isAdmin: false },
-  { id: "test-p2-tech-3",     tester: null,    fullName: "Tobias Tech",    role: "Tech Volunteer", pin: "200003", school: null, isAdmin: false },
-
-  // Runner queue workers
-  { id: "test-p2-runner-1",   tester: "Aaron",   fullName: "Rosa Runner",    role: "Runner",         pin: "200004", school: null, isAdmin: false },
-  { id: "test-p2-runner-2",   tester: "Lina",     fullName: "Rex Runner",     role: "Runner",         pin: "200005", school: null, isAdmin: false },
-
-  // Pure submitters — volunteer roles that work no queue, so they may submit to
-  // all three. Between these and the workers above, all 5 volunteer roles are
-  // represented.
-  { id: "test-p2-general",    tester: null,     fullName: "Gwen General",   role: "General Volunteer", pin: "200006", school: null, isAdmin: false },
-  { id: "test-p2-room",       tester: "Laetitia", fullName: "Piper Room",     role: "Presentation Room Coordinator", pin: "200007", school: null, isAdmin: false },
-  { id: "test-p2-ambassador", tester: "Rachel",   fullName: "Ana Ambassador", role: "Team Ambassador",   pin: "200008", school: "test-school-alpha", isAdmin: false },
-
-  // Restricted submitter — academic only
-  { id: "test-p2-coach",      tester: "Tyson",    fullName: "Casey Coach",    role: "Coach",    pin: "200009", school: "test-school-beta",  isAdmin: false },
-
-  // Cannot submit at all — should see no Requests tab
-  { id: "test-p2-delegate",   tester: null,  fullName: "Dana Delegate",  role: "Delegate", pin: "200010", school: "test-school-alpha", isAdmin: false },
-
-  // UNMANNED — the only holder of managesAcademicQueue. Seeded so the academic
-  // path exists and can be spot-checked later, but nobody logs in as Vera, so
-  // the coach's academic ticket sits unworked as Q11 expects. Flag, not a role.
-  { id: "test-p2-vp-academics", tester: null,     fullName: "Vera VP",        role: "Organizer", pin: "200011", school: null, isAdmin: false, managesAcademicQueue: true },
-];
-
-export const people = [...peopleP1, ...peopleP2];
+// Teamless volunteers (tech x2, runner, general, room) are the negative control
+// for every team filter: five volunteers with no school, so any division /
+// letter / school filter that reaches one of them is a bug (TESTING.md T8).
