@@ -150,6 +150,12 @@ interface CachedTextPart {
  * Caching is a strict prefix match: if you edit SYSTEM_PROMPT or the docs load
  * in a different order, the next call simply misses and re-writes the cache.
  * Nothing breaks, it just costs full price until the prefix settles again.
+ *
+ * @param {OpenAI} client OpenRouter-backed OpenAI client.
+ * @param {string} model OpenRouter model slug to call.
+ * @param {string} docsBlob The source documents — the cached prefix.
+ * @param {string} question The user's question, sent after the breakpoint.
+ * @return {Promise<string>} Raw message content (expected to be JSON).
  */
 const callModel = async (
   client: OpenAI,

@@ -118,8 +118,11 @@ optional short note plus a phone number to reach the requester.
 | `status` | string | `"open"` → `"claimed"` → `"resolved"`, or `"canceled"`. A worker may also **release** `"claimed"` → `"open"` (un-claim, back into the pool). **Exception — `academic`:** worked by one person (the VP), so there's no claim step; the VP resolves straight from `"open"` → `"resolved"` (no `"claimed"` state) |
 | `position` | number \| null | live FIFO rank among still-active tickets in the queue; **computed server-side**; null once closed |
 | `createdAt` | timestamp | submit time; the FIFO ordering key |
-| `claimedBy` | string \| null | manager's person id, set on claim |
+| `claimedBy` | string \| null | manager's person id, set on claim; cleared on release **and on cancel** |
+| `claimedByName` | string \| null | denormalized roster name of the claimer, so the requester and the other workers of a shared queue can see **who** holds a ticket without reading `people`. **Written by the `onRequestWrite` trigger, never by a client** — the rules exclude the key from the claim's allowed set |
 | `claimedAt` | timestamp \| null | |
+| `closedBy` | string \| null | person id of whoever resolved it |
+| `closedByName` | string \| null | denormalized roster name of the resolver, for the requester's "X marked your request resolved". Trigger-written, same as `claimedByName` |
 | `closedAt` | timestamp \| null | set on resolve or cancel |
 
 **Queues & who works them** (config is hardcoded — static like the school list):
@@ -139,15 +142,56 @@ Function whenever a ticket in the queue is created/closed (guarded so position-o
 writes don't re-trigger it).
 
 **Notifications** (FCM): on **create** → push the queue's manager(s); on **claim**
-and **resolve** → push the requester. Sent from the same trigger. **Release is
-silent** — no push (the requester keeps their position, so there's nothing to
-tell them).
+and **resolve** → push the requester (named: "Tara has picked up your request");
+on **cancel of a claimed ticket** → push the worker who was holding it, so a job
+doesn't silently disappear from under them. Sent from the same trigger.
+**Release is silent** — no push (the requester keeps their position, so there's
+nothing to tell them), and so is cancelling a ticket nobody had picked up.
+
+Pushes are **best-effort and secondary**. A push that fails must not affect the
+data, so the trigger recomputes `position` **before** notifying and wraps the
+notify in a try/catch. Every client view also renders the state change itself
+(see below) — a person with notifications off, or with the app in the
+foreground where the browser shows nothing, still sees what happened.
+
+**Names are stamped server-side.** A client only knows the roster name it
+cached at login, so accepting `claimedByName`/`closedByName` from it would mean
+a name corrected in the console mid-event starts rejecting that person's claims.
+The client writes only `claimedBy`/`closedBy` (its own uid, rule-checked); the
+trigger reads `people` and writes the name. The same resolved name is used for
+the push, so the notification and the ticket can't disagree.
+
+**Closed tickets stay readable for a while — via a second query, not a wider
+one.** Each client view runs **two** listeners:
+
+- **active** — `status in ["open","claimed"]`, ordered `createdAt asc`,
+  **unbounded**. This is the work, and it must never be capped: a single
+  "recent tickets, newest N" query lets closed tickets crowd live ones out of
+  the window, so an old still-open ticket would silently vanish from the
+  worker's queue once the week's volume passed N.
+- **closed** — `status in ["resolved","canceled"]`, ordered `createdAt desc`,
+  hard-capped (12). Raw material for terminal cards only, which is why a cap is
+  safe here.
+
+A status-filtered active query alone would make a resolve or a cancel land as a
+row silently disappearing, indistinguishable from a bug — hence the second
+listener. The closed ticket stays on screen as a terminal card ("Resolved by
+Tara", "Withdrawn by requester") until dismissed or ~30 minutes old. Four
+composite indexes back this: `{queue,status,createdAt}` and
+`{requesterId,status,createdAt}`, each in both `createdAt` directions.
+
+**`position` is recomputed in a transaction.** Two tickets closing in the same
+second give two trigger invocations; a plain read-then-write lets the one that
+read first commit last, restoring a slot for an already-closed ticket and
+leaving everyone behind it off by one **permanently** — position-only writes are
+loop-guarded, so no later trigger corrects it. The recompute and the closing
+ticket's `position: null` happen in one transaction.
 
 **Access:**
 - **Create:** a requester may create a ticket where `requesterId == uid`, `status == "open"`, manager/position/timestamp fields empty, **and** their role is allowed to submit to that `queue` (checked via `get()` on their `people` doc: Coach → `academic` only; volunteer roles → any). `requesterName` must match their roster name.
 - **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`).
-- **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`); no other fields.
-- **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid`, only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved`, and **release** `claimed → open` (clearing `claimedBy`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
+- **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`), and may additionally **null out** `claimedBy`/`claimedByName`/`claimedAt` so a withdrawn ticket carries no half-live claim. The rule permits those three keys only when the new value is `null`, so cancel can never be used to forge or steal a claim. No other fields.
+- **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid` — and **only** that; `claimedByName` is not in the allowed key set, because the trigger writes it — only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved` (setting `closedBy == uid`; `closedByName` is likewise trigger-written), and **release** `claimed → open` (clearing `claimedBy`/`claimedByName`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
 - **Resolve (academic):** the `academic` queue has a single worker (the VP), so there's no claim step — the VP may transition `open → resolved` directly (a dedicated rule branch, `queue == "academic"` only). Tech/runner still go through `claimed → resolved`.
 - No client may change `queue`, `requesterId`, `createdAt`, or `position`.
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { getCachedProfile, type Profile } from "./auth";
-import type { QueueId } from "./requests";
+import { subscribeRequestsBadge, type QueueId } from "./requests";
 import { Registration } from "./screens/Registration";
 import { Home } from "./screens/Home";
 import { PreviousMessages } from "./screens/PreviousMessages";
@@ -16,6 +16,7 @@ import { RulesSearch } from "./screens/RulesSearch";
 import { PdfViewer } from "./screens/PdfViewer";
 import { BottomNav, type TabId } from "./components/BottomNav";
 import { NotificationGate } from "./components/NotificationGate";
+import { Toasts } from "./components/Toasts";
 import type { SourceDoc } from "./searchConfig";
 
 // A View is a concrete screen. Several views belong to one bottom-bar tab (e.g.
@@ -64,6 +65,17 @@ function App() {
   const [submitQueue, setSubmitQueue] = useState<QueueId | null>(null);
   // Which PDF the full-document viewer (§6) is showing.
   const [pdfDoc, setPdfDoc] = useState<SourceDoc>("rulebook");
+  // Unattended request work, shown on the Requests tab so a worker sitting on
+  // another tab still sees that something landed.
+  const [requestBadge, setRequestBadge] = useState(0);
+
+  useEffect(() => {
+    if (!profile) {
+      setRequestBadge(0);
+      return;
+    }
+    return subscribeRequestsBadge(profile, setRequestBadge);
+  }, [profile]);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -139,9 +151,11 @@ function App() {
       <BottomNav
         profile={profile}
         active={VIEW_TAB[view]}
+        badges={{ requests: requestBadge }}
         onSelect={(tab) => setView(TAB_ROOT[tab])}
       />
       <NotificationGate />
+      <Toasts />
     </div>
   );
 }

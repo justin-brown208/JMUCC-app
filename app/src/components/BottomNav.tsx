@@ -77,27 +77,38 @@ export function tabsFor(profile: Profile): TabId[] {
 export function BottomNav({
   profile,
   active,
+  badges,
   onSelect,
 }: {
   profile: Profile;
   active: TabId;
+  /** Per-tab count of things waiting; 0 or absent shows no dot. */
+  badges?: Partial<Record<TabId, number>>;
   onSelect: (tab: TabId) => void;
 }) {
   return (
     <nav className="bottom-nav">
-      {tabsFor(profile).map((id) => (
-        <button
-          key={id}
-          type="button"
-          className={"nav-item" + (active === id ? " nav-item--active" : "")}
-          aria-label={LABELS[id]}
-          aria-current={active === id ? "page" : undefined}
-          onClick={() => onSelect(id)}
-        >
-          <span className="nav-tick" />
-          {ICONS[id]}
-        </button>
-      ))}
+      {tabsFor(profile).map((id) => {
+        const count = badges?.[id] ?? 0;
+        return (
+          <button
+            key={id}
+            type="button"
+            className={"nav-item" + (active === id ? " nav-item--active" : "")}
+            aria-label={
+              count > 0 ? `${LABELS[id]} (${count} waiting)` : LABELS[id]
+            }
+            aria-current={active === id ? "page" : undefined}
+            onClick={() => onSelect(id)}
+          >
+            <span className="nav-tick" />
+            {ICONS[id]}
+            {count > 0 && (
+              <span className="nav-badge">{count > 9 ? "9+" : count}</span>
+            )}
+          </button>
+        );
+      })}
     </nav>
   );
 }

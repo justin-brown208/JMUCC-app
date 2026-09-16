@@ -184,7 +184,7 @@ team filter must drop all five.
 The most important send here. Laetitia is a volunteer who still has a team, and
 that team is resolved through the school lookup, not stored on the person.
 Compare straight against T3: same "All Volunteers" selection, one filter added,
-six recipients down to one.
+six recipients d  own to one.
 
 ### T9 — Empty match is blocked
 Justin targets: **role Runner + division 1**.
@@ -384,3 +384,65 @@ Accepted gaps, and what a single 10-person cast cost:
   scheduled sends (Compose "Schedule for later" + the Scheduled tab + cancel),
   Message Tracking open-counts, the calendar widget and View Full Week, and
   document search. Say the word if any of these should become a Part 3.
+
+
+meriem doesnt get an update when tara resolved the ticket
+CLAIMIng doesnt distinguish between person - they both show claimed by not who by
+tech / general worker doesnt get a notifcation from a new request
+some get left over when cancelled
+---
+
+# Part 3 — Queue robustness retest (2026-09-16)
+
+The four notes above traced to three root causes, all fixed. Retest each by
+reproducing the original failure.
+
+**Root cause 1 — a foreground push shows nothing.** The browser does not display
+a notification while the page has focus; FCM hands it to `onMessage` instead,
+which only wrote to the console. Every request push sent to someone actively
+using the app was discarded. Now `onMessage` re-emits it and `<Toasts>` renders
+an in-app banner. Tapping a *background* notification also focuses the app now
+(`notificationclick` in the FCM service worker).
+
+**Root cause 2 — a state change was only ever a push.** The requester's and the
+worker's queries filtered to `open`/`claimed`, so a resolve or a cancel reached
+them as a row silently vanishing. Both queries now fetch recent tickets
+regardless of status and the UI holds the closed one on screen as a terminal
+card ("Resolved by Tara", "Withdrawn by requester") with a Dismiss button, for
+up to 30 minutes. This works with notifications off entirely.
+
+**Root cause 3 — failures were swallowed.** `cancelRequest(...).catch(() =>
+undefined)` meant a rejected write looked exactly like a ticket that wouldn't go
+away: Firestore rolls the optimistic local change back, the row reappears, and
+nothing is said. Cancel now confirms, shows a spinner, and reports the error in
+the row. Claim/Resolve/Drop report theirs on the ticket. A dead `onSnapshot`
+listener — the other way a stale list survives forever — now retries with
+backoff and the view says "Lost the live connection".
+
+## Checks
+
+1. **Resolve reaches the requester, app open.** Requester on the Requests tab.
+   Worker resolves. Expect: a toast, *and* the row turns into "Resolved by
+   <name> ✓" with Dismiss. Turn notifications off on the requester's device and
+   repeat — the card must still appear.
+2. **Claim names the claimer.** Two tech volunteers, one ticket. A claims it.
+   Expect A's pill: "You've got this"; B's: "Claimed by <A's first name>". The
+   requester sees "<A> is on it". Neither worker should see a bare "Claimed".
+3. **New request reaches the workers.** Submit to `tech` with the worker's app
+   open (toast) and closed (system banner; tapping it focuses the app). The
+   Requests tab shows a gold count badge from any other tab. If nothing arrives,
+   check the worker's device: `PushStatusBanner` on Home/Requests now names the
+   reason (off / blocked / iPhone not installed to Home Screen) and offers the
+   button that fixes it. Cross-check server-side with
+   `firebase functions:log --only onRequestWrite` — "Request push had no devices
+   to send to" means the device never registered, not a trigger bug.
+4. **Cancel leaves nothing behind.** Requester cancels a *claimed* ticket.
+   Expect: the requester's row becomes "Cancelled"; the ticket leaves the
+   worker's active list and reappears there as a "Withdrawn" terminal card
+   (that worker gets a push too); `claimedBy`/`claimedByName`/`claimedAt` are
+   nulled on the doc; everyone else's position drops by one. Double-tap Cancel
+   and cancel a ticket a worker resolves at the same instant — both must show a
+   visible error, never a silent no-op.
+5. **Positions survive a push failure.** The trigger now recomputes positions
+   *before* notifying and catches push errors, so an FCM outage can no longer
+   leave the queue's numbers stale or make the whole trigger retry.

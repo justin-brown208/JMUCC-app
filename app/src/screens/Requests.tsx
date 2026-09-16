@@ -1,6 +1,7 @@
 import type { Profile } from "../auth";
 import { MyRequests } from "../components/MyRequests";
 import { QueuePanel } from "../components/QueuePanel";
+import { PushStatusBanner } from "../components/PushStatusBanner";
 import {
   submittableQueues,
   workedQueue,
@@ -30,6 +31,7 @@ export function Requests({
     return (
       <div className="screen">
         <h1 className="title">{QUEUE_META[worksQueue].workerTitle}</h1>
+        <PushStatusBanner worker />
         <QueuePanel queue={worksQueue} />
 
         <MyRequests />
@@ -59,6 +61,8 @@ export function Requests({
   return (
     <div className="screen">
       <h1 className="title">Requests</h1>
+
+      <PushStatusBanner />
 
       <MyRequests />
 

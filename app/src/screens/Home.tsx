@@ -5,6 +5,7 @@ import { recordAppOpen } from "../appOpens";
 import { subscribeMessages, type Message } from "../messages";
 import { MessageCard } from "../components/MessageCard";
 import { ScheduleWidget } from "../components/ScheduleWidget";
+import { PushStatusBanner } from "../components/PushStatusBanner";
 
 /**
  * Home tab — the dashboard (PAGES.md §2): a greeting (tap to reveal Log out),
@@ -26,8 +27,12 @@ export function Home({
   const [loadError, setLoadError] = useState(false);
 
   // On each Home open: register for push and stamp the open-tracking timestamp.
+  // The permission prompt fires here, as it always has (it reaches the iOS PWA
+  // fine — PIN entry has already given the page user activation), but only once
+  // per app load, since Home remounts on every return to this tab. Anything
+  // short of "granted" is then picked up by PushStatusBanner below.
   useEffect(() => {
-    registerForPush();
+    registerForPush({ prompt: true, oncePerSession: true });
     recordAppOpen();
   }, []);
 
@@ -62,6 +67,8 @@ export function Home({
           Log out
         </button>
       )}
+
+      <PushStatusBanner />
 
       <ScheduleWidget profile={profile} onViewFullWeek={onOpenFullWeek} />
 

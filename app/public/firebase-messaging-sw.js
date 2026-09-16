@@ -29,3 +29,24 @@ firebase.initializeApp({
 });
 
 firebase.messaging();
+
+/*
+ * Tapping a background notification should land the person in the app. Without
+ * this the banner just dismisses, which made "I never got told" and "I got told
+ * and it did nothing" look the same from the outside.
+ *
+ * Focus an already-open window if there is one, otherwise open a new one.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if ("focus" in client) return client.focus();
+        }
+        return self.clients.openWindow("/");
+      })
+  );
+});

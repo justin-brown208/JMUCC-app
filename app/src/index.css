@@ -1158,3 +1158,141 @@ body::before {
 .btn-small:active {
   outline-color: var(--accent);
 }
+
+/* ===============================================================
+   Request-queue feedback surfaces
+   ===============================================================
+   Everything below exists so a queue event is never invisible: a closed ticket
+   says why it closed instead of vanishing, a claim names its holder, a push
+   that lands while the app is open still shows, and a device that can't receive
+   push says so. Colour follows DESIGN.md — outline carries state, gold = live /
+   yours, muted = settled / someone else's. */
+
+/* A ticket that has closed but is still on screen as its terminal card: same
+   surface, drained of the gold so it reads as history, not work. */
+.myreq--closed,
+.msg--closed {
+  outline-color: var(--text-muted);
+  opacity: 0.72;
+}
+.myreq--closed .myreq-position {
+  color: var(--text-muted);
+}
+.msg--closed::before {
+  background: var(--text-muted);
+}
+
+/* Per-row failure text inside the My Requests strip (a rejected cancel). */
+.myreq-error {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--accent);
+}
+.myreq-confirm {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+/* Queue status pill tones. `open` and `claimed` keep their existing meaning;
+   `taken` marks a ticket another worker holds, `done` a settled one. */
+.qticket-status--taken {
+  outline-color: var(--text-muted);
+  color: var(--text-muted);
+}
+.qticket-status--done {
+  outline-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+/* Bottom-nav count badge — gold dot on the tab that has work waiting. */
+.nav-badge {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  margin-left: 4px;
+  min-width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* In-app toast for a push that arrived while the app is open. Sits above the
+   bottom nav; tap to dismiss, otherwise it retires itself. */
+.toast-stack {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-height) + 12px);
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 390px;
+  box-sizing: border-box;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  text-align: left;
+  cursor: pointer;
+  animation: toast-in 180ms ease-out;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.toast-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.toast-body {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+/* "Notifications are off" notice. Outlined in gold — it's an action to take,
+   not a passive surface. */
+.push-banner {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.push-banner-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text);
+}
