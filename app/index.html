@@ -3,10 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <!-- viewport-fit=cover lets the gradient run under the notch; index.css
-         pays it back with safe-area insets so content isn't clipped. -->
+         pays it back with safe-area insets so content isn't clipped.
+         maximum-scale + user-scalable=no stop pinch/double-tap zoom so this
+         reads as an app, not a web page. Android honours them; iOS Safari has
+         ignored user-scalable since iOS 10, so index.css also sets
+         touch-action to cover it there. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
     />
     <meta name="theme-color" content="#213957" />
     <meta name="description" content="JMUCC case competition companion app." />

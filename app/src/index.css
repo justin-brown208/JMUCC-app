@@ -61,6 +61,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* No browser zoom anywhere — the app should not pinch or double-tap-zoom like
+   a web page. The viewport meta handles Android; iOS Safari ignores
+   user-scalable, so this is what actually stops it there: allowing only
+   one-finger panning excludes both pinch and double-tap zoom, while leaving
+   normal scrolling intact. `touch-action` is per-element, not inherited, so
+   the Full Week viewer re-enables full gesture control for itself below.
+   Trade-off: this also removes pinch-to-zoom as an accessibility affordance —
+   deliberate, and the reason every body font size stays >= 13px. */
+html,
+body {
+  touch-action: pan-x pan-y;
+}
+
+/* Stop iOS inflating text when the device rotates (orientation is locked in
+   the manifest for standalone, but this also applies in-browser). */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* Gradient on a fixed layer pinned to the viewport (not the document), so it
    fills the whole screen on iOS standalone. Using it via ::before avoids
    background-attachment: fixed, which iOS Safari doesn't reliably support. */
@@ -318,7 +338,11 @@ body::before {
   opacity: 0.4;
 }
 
-/* Single-line text input (DESIGN.md component D). */
+/* Single-line text input (DESIGN.md component D).
+   NOTE: this and .textarea / .datetime / .select are pinned at 16px on
+   purpose. Any form control under 16px makes iOS Safari zoom the whole
+   viewport when it gains focus, and with user-scalable=no the user cannot
+   pinch back out. Do not shrink these for looks. */
 .text-input {
   width: 100%;
   box-sizing: border-box;
@@ -330,7 +354,7 @@ body::before {
   outline-offset: -1px;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 16px;
 }
 .text-input::placeholder {
   color: var(--text-muted);
@@ -351,7 +375,7 @@ body::before {
   outline-offset: -1px;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 16px;
   resize: vertical;
 }
 .textarea::placeholder {
@@ -374,7 +398,7 @@ body::before {
   outline-offset: -1px;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 16px;
 }
 .datetime:focus {
   outline-color: var(--accent);
@@ -401,7 +425,7 @@ body::before {
   outline-offset: -1px;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 16px;
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
@@ -784,6 +808,10 @@ body::before {
 .fullweek-content {
   width: 100% !important;
   height: 100% !important;
+  /* The one place zoom IS wanted. react-zoom-pan-pinch drives the transform
+     from its own touch handlers and sets no touch-action itself, so opt out of
+     the page-wide pan-only rule and hand it every gesture. */
+  touch-action: none;
 }
 .fullweek-content {
   display: flex;
