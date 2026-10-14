@@ -12,7 +12,8 @@ rules_version = '2';
 // is locked out of nearly everything. A 6-digit PIN is the only credential.
 //
 // Client-facing surface is intentionally tiny:
-//   - reads:  schools (admins only), announcements (only if addressed to you)
+//   - reads:  schools (admins only), announcements (only if addressed to you),
+//             fcmTokens / opsEvents / ops (admins only — the /ops dashboard)
 //   - writes: fcmTokens (your own device), appOpens (your own record)
 // Everything else is deny-all for clients.
 //
@@ -34,13 +35,20 @@ rules_version = '2';
 //   Fields: title string, body string, silent bool,
 //           sentAt timestamp, recipientIds list<string>
 //
-// Collection: fcmTokens        (client: write own device only)
+// Collection: fcmTokens        (client: write own device; admins read)
 //   Document ID: client device id
 //   Fields: personId string(==uid), token string, updatedAt timestamp
 //
 // Collection: appOpens         (client: write own record only)
 //   Document ID: person's auth uid
 //   Fields: lastOpenedAt timestamp
+//
+// Collection: opsEvents        (client: admin read only; Functions write)
+//   Document ID: auto
+//   Fields: type "search"|"push"|"error", at timestamp, + per-type fields
+//
+// Collection: ops              (client: admin read only; Functions write)
+//   Documents: stats (running totals), heartbeat (scheduler liveness)
 //
 // (No pinAttempts collection — PIN attempts are intentionally not throttled;
 //  decision 2026-07-18. See SCHEMA.md.)
@@ -172,11 +180,11 @@ service cloud.firestore {
 
     // -----------------------------------------------------------
     // fcmTokens — a client may create/update a device registration for
-    // itself. No client reads (only the send Function reads tokens).
-    // No deletes from the client.
+    // itself. Admins may read (the /ops dashboard's device list); nobody
+    // else. No deletes from the client.
     // -----------------------------------------------------------
     match /fcmTokens/{deviceId} {
-      allow read: if false;
+      allow read: if isAdmin();
       allow create: if isAuthenticated() && isValidFcmToken(request.resource.data);
       // Update requires already owning the existing doc, so one user cannot
       // overwrite another's device registration (push-hijack) even if they
@@ -208,7 +216,8 @@ service cloud.firestore {
     match /requests/{id} {
       allow read: if isAuthenticated()
         && (resource.data.requesterId == request.auth.uid
-          || isQueueWorker(resource.data.queue));
+          || isQueueWorker(resource.data.queue)
+          || isAdmin());
 
       allow create: if isAuthenticated()
         && isValidNewRequest(request.resource.data)
@@ -287,6 +296,21 @@ service cloud.firestore {
     // which use the Admin SDK, so no client writes.
     // -----------------------------------------------------------
     match /scheduledNotifications/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------
+    // opsEvents / ops — monitoring data for the /ops dashboard. Written only
+    // by Functions (searches, push fan-outs, server problems, client error
+    // reports via the reportClientError callable). Admins read.
+    // -----------------------------------------------------------
+    match /opsEvents/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /ops/{id} {
       allow read: if isAdmin();
       allow write: if false;
     }

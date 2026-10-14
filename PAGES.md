@@ -197,3 +197,21 @@ workers claim and resolve them. Entered from Home. See `SCHEMA.md` → `requests
 **Behavior**
 - Uses an **off-the-shelf image viewer** (pinch/scroll to zoom, drag to pan) — not custom-built, not generated from the calendar feed.
 - Read-only. No per-user personalization — it's the same full-week image for everyone.
+
+---
+
+## 12. Ops Dashboard *(`/ops`, admins only, laptop)*
+**Purpose:** One page that says whether every system is healthy during the event. Outside the phone shell (no bottom nav), opened directly at `/ops` on a laptop; sign in with an admin PIN. Deliberately plain — organized tables, not designed screens.
+
+**Shows (top to bottom)**
+- **Alerts** — computed problems, red/gold: scheduler heartbeat stale (>10 min), a scheduled send overdue, a queue with no workers or **no worker with push** (submits notify nobody), a ticket unclaimed >10 min or a claim held >30 min, errors / push failures in the last hour. "All clear" when none.
+- **Tiles** — devices registered (seen in 1h / 24h), people reachable by push, search count + total/avg cost + cache-hit %, push delivered/targeted + failed, error/warning totals, scheduler status.
+- **Queue health** — per queue: open, claimed, oldest open, workers, workers with push; then every active ticket with wait time and holder.
+- **Scheduled sends** — pending, soonest first.
+- **Reachability by role** — people / with push / without / never opened the app, plus expandable name lists for "no push registration" and "never opened".
+- **Devices** — every registration with owner and last seen (±15 min, see SCHEMA §4).
+- **Rulebook searches**, **Push deliveries**, **Problems** — latest 100 of each, with tokens/cost/latency, delivery counts + FCM error codes, and expandable error context.
+
+**Behavior**
+- Everything is **live** except the roster (names, roles, last app-open), which loads once and on [Refresh roster] — it's ~1k reads a call. Leave the tab open rather than reloading: reloads are what cost reads.
+- Totals are cumulative since `ops/stats` was created — delete that doc before the event to drop test traffic (SCHEMA §9).

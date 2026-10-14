@@ -33,6 +33,7 @@ import {
   TEAM_LETTERS,
 } from "./constants.js";
 import {assertAdmin} from "./shared.js";
+import {recordPush, tallyErrorCode} from "./ops.js";
 
 export interface SendPayload {
   title: string;
@@ -53,7 +54,7 @@ export interface SendResult {
 }
 
 type Team = {division: number | null; teamLetter: string | null};
-type TokenRef = {docId: string; token: string};
+type TokenRef = {docId: string; personId: string; token: string};
 
 /** FCM caps a multicast at 500 tokens. */
 const MULTICAST_LIMIT = 500;
@@ -126,6 +127,8 @@ export const performSend = async (
   const tokens = await tokensFor(db, recipientIds);
   let delivered = 0;
   let failed = 0;
+  let pruned = 0;
+  let errorCodes: Record<string, number> = {};
   if (tokens.length > 0) {
     const res = await sendPush(
       tokens,
@@ -136,8 +139,24 @@ export const performSend = async (
     );
     delivered = res.delivered;
     failed = res.failed;
-    if (res.staleDocIds.length > 0) await pruneTokens(db, res.staleDocIds);
+    errorCodes = res.errorCodes;
+    pruned = res.staleDocIds.length;
+    if (pruned > 0) await pruneTokens(db, res.staleDocIds);
   }
+
+  const withDevice = new Set(tokens.map((t) => t.personId));
+  await recordPush(db, {
+    kind: "announcement",
+    refId: announcementRef.id,
+    recipients: recipientIds.length,
+    recipientsWithoutDevice: recipientIds.filter((id) => !withDevice.has(id))
+      .length,
+    tokens: tokens.length,
+    delivered,
+    failed,
+    pruned,
+    errorCodes,
+  });
 
   logger.info("Notification sent", {
     announcementId: announcementRef.id,
@@ -225,7 +244,7 @@ const tokensFor = async (
   for (const doc of snap.docs) {
     const t = doc.data();
     if (recipients.has(t.personId) && typeof t.token === "string") {
-      out.push({docId: doc.id, token: t.token});
+      out.push({docId: doc.id, personId: t.personId, token: t.token});
     }
   }
   return out;
@@ -238,11 +257,17 @@ const sendPush = async (
   body: string,
   silent: boolean,
   announcementId: string
-): Promise<{delivered: number; failed: number; staleDocIds: string[]}> => {
+): Promise<{
+  delivered: number;
+  failed: number;
+  staleDocIds: string[];
+  errorCodes: Record<string, number>;
+}> => {
   const messaging = getMessaging();
   let delivered = 0;
   let failed = 0;
   const staleDocIds: string[] = [];
+  const errorCodes: Record<string, number> = {};
 
   for (let i = 0; i < tokens.length; i += MULTICAST_LIMIT) {
     const batch = tokens.slice(i, i + MULTICAST_LIMIT);
@@ -264,6 +289,7 @@ const sendPush = async (
         return;
       }
       failed++;
+      tallyErrorCode(errorCodes, r.error?.code);
       // A token that's no longer registered will never work again — prune it.
       const code = r.error?.code;
       if (
@@ -276,7 +302,7 @@ const sendPush = async (
     });
   }
 
-  return {delivered, failed, staleDocIds};
+  return {delivered, failed, staleDocIds, errorCodes};
 };
 
 // Delete token docs FCM reported as dead. Best-effort; never fails the send.

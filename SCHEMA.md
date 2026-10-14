@@ -15,10 +15,12 @@
 | `people` | ❌ never | ❌ never | contains every PIN, admins included |
 | `schools` | admins only | ❌ (console/Functions) | source for the notification school dropdown |
 | `announcements` | only if addressed to you | ❌ (Functions) | your own message history |
-| `fcmTokens` | ❌ | your own device | push delivery address |
+| `fcmTokens` | admins only | your own device | push delivery address; doubles as the device list on /ops |
 | `appOpens` | ❌ | your own record | open-tracking timestamp |
-| `requests` | your own + (managers: your queue) | create own; cancel own; managers claim/resolve | help-desk queue tickets |
+| `requests` | your own + (managers: your queue) + admins all | create own; cancel own; managers claim/resolve | help-desk queue tickets |
 | `scheduledNotifications` | admins only | ❌ (Functions) | pending future sends |
+| `opsEvents` | admins only | ❌ (Functions) | monitoring feed: searches, push fan-outs, problems |
+| `ops` | admins only | ❌ (Functions) | monitoring totals + scheduler heartbeat |
 
 The client is almost entirely locked out by design. Nearly everything meaningful flows through Cloud Functions.
 
@@ -81,11 +83,20 @@ One document per installed device — the address Firebase Cloud Messaging needs
 |---|---|---|
 | `personId` | string | the owner of this device |
 | `token` | string | the FCM registration token |
-| `updatedAt` | timestamp | last refresh |
+| `updatedAt` | timestamp | last write — doubles as the device's **last seen** |
+
+`updatedAt` is rewritten whenever Home mounts with push granted, **throttled
+client-side to once per 15 minutes** for an unchanged token + person (a new
+token or a different signed-in person writes immediately). So on `/ops` it reads
+as "last seen, ±15 min". The throttle exists because the dashboard listens to
+this collection live and pays one read per write. A device that never granted
+push has no doc at all — `appOpens` is the per-person signal for those.
 
 **No** role/school/division/teamLetter here — targeting is resolved fresh at send time (Function loads people + schools, joins in memory, filters), so a token can never carry stale team data.
 
-**Access: the client may write its own token document; no client reads.**
+**Access: the client may write its own token document; admins may read** (the
+/ops device list). A token alone can't send a push — that needs the project's
+server credentials — so admin read exposes no send capability.
 
 ---
 
@@ -98,7 +109,7 @@ One document per person, **ID = person ID**, holding just when they last opened 
 
 Kept in its own collection (rather than on the `people` doc) specifically so the roster stays a sealed no-client-write collection — this is the one thing the client needs to write, isolated here.
 
-**Access: a person may write only their own `appOpens` document; no client reads** (only the admin tracking Function reads these).
+**Access: a person may write only their own `appOpens` document; no client reads** (only the admin tracking Function and `getOpsRoster` read these). Not opened to admin reads for /ops: it's written on *every* Home open and can't be throttled without breaking Message Tracking's "opened since sent", so a live admin listener on it would be the dashboard's biggest read cost. `getOpsRoster` reads it once per page load instead.
 
 ---
 
@@ -189,7 +200,7 @@ ticket's `position: null` happen in one transaction.
 
 **Access:**
 - **Create:** a requester may create a ticket where `requesterId == uid`, `status == "open"`, manager/position/timestamp fields empty, **and** their role is allowed to submit to that `queue` (checked via `get()` on their `people` doc: Coach → `academic` only; volunteer roles → any). `requesterName` must match their roster name.
-- **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`).
+- **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`); **admins** may read all (the /ops queue-health panel — `status in [open, claimed]` ordered by `createdAt`, backed by a `{status, createdAt}` index).
 - **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`), and may additionally **null out** `claimedBy`/`claimedByName`/`claimedAt` so a withdrawn ticket carries no half-live claim. The rule permits those three keys only when the new value is `null`, so cancel can never be used to forge or steal a claim. No other fields.
 - **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid` — and **only** that; `claimedByName` is not in the allowed key set, because the trigger writes it — only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved` (setting `closedBy == uid`; `closedByName` is likewise trigger-written), and **release** `claimed → open` (clearing `claimedBy`/`claimedByName`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
 - **Resolve (academic):** the `academic` queue has a single worker (the VP), so there's no claim step — the VP may transition `open → resolved` directly (a dedicated rule branch, `queue == "academic"` only). Tech/runner still go through `claimed → resolved`.
@@ -230,6 +241,88 @@ Functions — **create** via the `scheduleNotification` callable (admin-gated,
 validates the payload and that `sendAt` is in the future), **cancel** via the
 `cancelScheduledNotification` callable (admin-gated, `scheduled → canceled` only).
 No client writes.
+
+---
+
+## 8. `opsEvents` — monitoring feed
+One document per thing worth seeing on the `/ops` dashboard. Written by
+Functions only, through the recorders in `functions/src/ops.ts`, which are
+**best-effort** — a failed monitoring write is logged and swallowed, never
+allowed to fail the search/send it describes. Kept for the whole week (a few
+thousand docs; storage is negligible).
+
+Common fields: `type` (`"search"` | `"push"` | `"error"`), `at` (server
+timestamp).
+
+**`type: "search"`** — one per `searchDocuments` call that reached the model.
+
+| Field | Type | Notes |
+|---|---|---|
+| `personId` | string | who asked |
+| `query` | string | the question, clipped to 500 chars |
+| `ok` | boolean | false = every model failed |
+| `model` | string \| null | the model that answered |
+| `fallback` | boolean | answered by a model other than the primary |
+| `citations` | number | verified citations returned (0 = no answer found) |
+| `dropped` | number | candidate quotes rejected by the verbatim check |
+| `promptTokens` / `cachedTokens` / `completionTokens` | number | from the model's `usage` |
+| `cost` | number \| null | OpenRouter's `usage.cost`, **in OpenRouter credits** (null if absent) |
+| `durationMs` | number | total handler time, including a cold-start PDF load |
+
+**`type: "push"`** — one per push fan-out: each announcement send (`kind:
+"announcement"`) and each request push (`kind: "request:new"` / `"request:claimed"`
+/ `"request:resolved"` / `"request:canceled"`). Written **even when no device
+was reachable**, so "0 tokens" shows up as an event, not a silence.
+
+| Field | Type | Notes |
+|---|---|---|
+| `kind` | string | see above |
+| `refId` | string | announcement id / request id |
+| `recipients` | number | people targeted |
+| `recipientsWithoutDevice` | number | of those, people with no `fcmTokens` registration |
+| `tokens` | number | devices targeted |
+| `delivered` | number | **accepted by FCM** — not proof it was displayed |
+| `failed` | number | |
+| `pruned` | number | dead registrations deleted |
+| `errorCodes` | map\<string, number\> | FCM error code (minus the `messaging/` prefix) → count |
+
+**`type: "error"`** — server problems and client crash reports.
+
+| Field | Type | Notes |
+|---|---|---|
+| `level` | `"error"` \| `"warn"` | |
+| `source` | string | function name, or `"client"` |
+| `message` | string | |
+| `context` | map | free-form detail (ids, error text; for `client`: personId, stack, url, userAgent) |
+
+Recorded today: every model failing (`searchDocuments`), a scheduled send failing
+(`runScheduledSends`), a request push throwing / a new request with no queue
+workers / an acting worker missing from the roster (`onRequestWrite`), a
+duplicate PIN (`authenticateWithPin`), and client errors via the
+`reportClientError` callable (signed-in callers only; the client caps itself per
+session). Expected `HttpsError`s (bad input, wrong PIN) are not recorded.
+
+**Access: admins read; no client writes.** Backed by a `{type, at desc}` index
+for the per-type feeds.
+
+---
+
+## 9. `ops` — monitoring totals + heartbeat
+Two fixed documents, written by Functions only.
+
+- **`ops/stats`** — running totals, bumped with `FieldValue.increment` in the
+  **same batch** as each `opsEvents` write, so the dashboard reads week totals
+  from one doc instead of re-reading every event. Fields: `searches`,
+  `searchesFailed`, `searchesEmpty`, `searchesFallback`, `searchCost`,
+  `searchPromptTokens`, `searchCachedTokens`, `searchCompletionTokens`,
+  `pushes`, `pushTokens`, `pushDelivered`, `pushFailed`,
+  `pushRecipientsWithoutDevice`, `errors`, `warnings`. Cumulative since the doc
+  was created — **delete it (console) before the event** to drop test traffic.
+- **`ops/heartbeat`** — `scheduledSendsAt`: stamped by `runScheduledSends` on
+  every 5th minute (UTC), so a value older than ~10 min means the scheduler has
+  stopped and scheduled announcements won't fire.
+
+**Access: admins read; no client writes.**
 
 ---
 

@@ -17,6 +17,7 @@ import {onCall, HttpsError} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
+import {recordProblem} from "./ops.js";
 
 interface AuthResult {
   token: string;
@@ -56,6 +57,8 @@ export const authenticateWithPin = onCall(
       logger.warn("Duplicate PIN detected", {
         matched: snap.docs.map((d) => d.id),
       });
+      await recordProblem(db, "warn", "authenticateWithPin",
+        "Duplicate PIN detected", {matched: snap.docs.map((d) => d.id)});
     }
 
     const personDoc = snap.docs[0];

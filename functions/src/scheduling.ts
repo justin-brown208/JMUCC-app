@@ -15,6 +15,7 @@ import {onSchedule} from "firebase-functions/scheduler";
 import * as logger from "firebase-functions/logger";
 import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 import {assertAdmin} from "./shared.js";
+import {heartbeat, recordProblem} from "./ops.js";
 import {
   validatePayload,
   performSend,
@@ -93,6 +94,7 @@ export const cancelScheduledNotification = onCall(
 // query is empty (the normal case).
 export const runScheduledSends = onSchedule("every 1 minutes", async () => {
   const db = getFirestore();
+  await heartbeat(db);
   const dueSnap = await db
     .collection("scheduledNotifications")
     .where("status", "==", "scheduled")
@@ -134,6 +136,8 @@ export const runScheduledSends = onSchedule("every 1 minutes", async () => {
         error: e instanceof Error ? e.message : String(e),
       });
       logger.error("Scheduled send failed", {id: ref.id, error: String(e)});
+      await recordProblem(db, "error", "runScheduledSends",
+        "Scheduled send failed", {id: ref.id, err: String(e)});
     }
   }
 });

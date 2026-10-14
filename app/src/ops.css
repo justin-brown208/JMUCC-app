@@ -1,0 +1,201 @@
+/* /ops dashboard — laptop-width, deliberately plain. Uses the app's tokens
+   (index.css) but none of the phone-shell layout. */
+
+.ops {
+  align-self: start;
+  width: min(1400px, 100%);
+  box-sizing: border-box;
+  padding: 24px 24px 64px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ops h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  margin: 0;
+}
+
+.ops-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.ops-header-meta {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.ops-btn {
+  font: inherit;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.ops-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ops-link {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* status colours — local to /ops (the app has no danger token yet) */
+.ops {
+  --ops-bad: #ff6b6b;
+  --ops-warn: var(--accent);
+  --ops-ok: #6fcf97;
+}
+
+.ops-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.ops-alert {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid;
+  background: var(--surface);
+}
+.ops-alert.ops-bad { border-color: var(--ops-bad); color: var(--ops-bad); }
+.ops-alert.ops-warn { border-color: var(--ops-warn); color: var(--ops-warn); }
+.ops-alert.ops-ok { border-color: var(--ops-ok); color: var(--ops-ok); }
+
+.ops-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.ops-tile {
+  background: var(--surface);
+  border: 1px solid var(--surface-raised);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.ops-tile.ops-bad { border-color: var(--ops-bad); }
+.ops-tile.ops-warn { border-color: var(--ops-warn); }
+.ops-tile-label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.ops-tile-value {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 2px 0;
+}
+.ops-tile.ops-bad .ops-tile-value { color: var(--ops-bad); }
+.ops-tile-sub {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 0 20px;
+}
+
+.ops-section {
+  margin-bottom: 24px;
+  min-width: 0;
+}
+.ops-section h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.ops-note {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+.ops-warn {
+  color: var(--ops-warn);
+  margin: 4px 0 8px;
+}
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+.ops-table th,
+.ops-table td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--surface-raised);
+  vertical-align: top;
+  white-space: nowrap;
+}
+.ops-table th {
+  color: var(--text-muted);
+  font-weight: normal;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+.ops-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.ops-table td.ops-wrap {
+  white-space: normal;
+  min-width: 200px;
+}
+
+.ops-scroll {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--surface-raised);
+  border-radius: var(--radius);
+}
+.ops-scroll .ops-table {
+  margin-bottom: 0;
+}
+
+.ops-details {
+  margin: 6px 0;
+}
+.ops-details > summary,
+.ops-table summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.ops-pre {
+  margin: 4px 0 0;
+  font-size: 11px;
+  max-width: 420px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.ops-muted { color: var(--text-muted); }
+.ops-mono { font-variant-numeric: tabular-nums; }
+.ops-bad-text { color: var(--ops-bad); }
+.ops-warn-text { color: var(--ops-warn); }
+.ops-empty {
+  color: var(--text-muted);
+  margin: 4px 0 10px;
+}

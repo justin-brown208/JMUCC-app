@@ -24,8 +24,10 @@ import {onCall, HttpsError} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import {defineSecret} from "firebase-functions/params";
 import {getStorage} from "firebase-admin/storage";
+import {getFirestore} from "firebase-admin/firestore";
 import OpenAI from "openai";
 import {extractText, getDocumentProxy} from "unpdf";
+import {recordSearch, recordProblem} from "./ops.js";
 
 const OPENROUTER_KEY = defineSecret("OPENROUTER_API_KEY");
 
@@ -155,14 +157,22 @@ interface CachedTextPart {
  * @param {string} model OpenRouter model slug to call.
  * @param {string} docsBlob The source documents — the cached prefix.
  * @param {string} question The user's question, sent after the breakpoint.
- * @return {Promise<string>} Raw message content (expected to be JSON).
+ * @return {Promise<ModelResult>} Raw content (expected to be JSON) + usage.
  */
+interface ModelResult {
+  content: string;
+  promptTokens: number;
+  cachedTokens: number;
+  completionTokens: number;
+  cost: number | null; // OpenRouter's billed cost, in credits
+}
+
 const callModel = async (
   client: OpenAI,
   model: string,
   docsBlob: string,
   question: string
-): Promise<string> => {
+): Promise<ModelResult> => {
   const parts: CachedTextPart[] = [
     {
       type: "text",
@@ -190,22 +200,27 @@ const callModel = async (
   // Log what the cache actually did. If `cached` stays 0 across repeated
   // questions, the prefix is being invalidated somewhere and the saving is
   // not happening — that's the number to look at, not the bill.
+  // `cost` is OpenRouter's own field (always included now — no opt-in flag),
+  // so it isn't in the OpenAI SDK's usage type.
   const usage = res.usage as (typeof res.usage & {
     prompt_tokens_details?: {cached_tokens?: number};
+    cost?: number;
   }) | undefined;
-  logger.info("Search model call", {
-    model,
-    promptTokens: usage?.prompt_tokens,
+  const result: ModelResult = {
+    content: res.choices[0]?.message?.content ?? "",
+    promptTokens: usage?.prompt_tokens ?? 0,
     cachedTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
-    completionTokens: usage?.completion_tokens,
-  });
-
-  return res.choices[0]?.message?.content ?? "";
+    completionTokens: usage?.completion_tokens ?? 0,
+    cost: typeof usage?.cost === "number" ? usage.cost : null,
+  };
+  logger.info("Search model call", {model, ...result, content: undefined});
+  return result;
 };
 
 export const searchDocuments = onCall(
   {secrets: [OPENROUTER_KEY]},
   async (request): Promise<{citations: Citation[]}> => {
+    const started = Date.now(); // total latency, incl. PDF load on a cold start
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Sign in first.");
     }
@@ -246,13 +261,18 @@ export const searchDocuments = onCall(
       baseURL: "https://openrouter.ai/api/v1",
     });
 
+    const db = getFirestore();
+    const base = {personId: request.auth.uid, query};
+
     // Each model in turn; the next runs only if the previous throws. If every
     // one fails it's a real outage → surface it.
-    let raw = "";
+    let result: ModelResult | undefined;
+    let usedModel: string | null = null;
     let failure: unknown;
     for (const model of MODELS) {
       try {
-        raw = await callModel(client, model, docsBlob, query);
+        result = await callModel(client, model, docsBlob, query);
+        usedModel = model;
         failure = undefined;
         break;
       } catch (err) {
@@ -260,12 +280,33 @@ export const searchDocuments = onCall(
         logger.warn(`Model ${model} failed; trying the next.`, err);
       }
     }
-    if (failure) {
+    if (failure || !result) {
       logger.error("Every model failed.", failure);
+      await Promise.all([
+        recordSearch(db, {
+          ...base,
+          ok: false,
+          model: null,
+          fallback: false,
+          citations: 0,
+          dropped: 0,
+          promptTokens: 0,
+          cachedTokens: 0,
+          completionTokens: 0,
+          cost: null,
+          durationMs: Date.now() - started,
+        }),
+        recordProblem(db, "error", "searchDocuments", "Every model failed", {
+          models: MODELS,
+          err: String(failure),
+        }),
+      ]);
       throw new HttpsError("unavailable", "Search is temporarily down.");
     }
+    const raw = result.content;
 
     // Verify each candidate quote is a real span of its source; drop the rest.
+    let dropped = 0;
     const out: Citation[] = [];
     for (const c of parseCitations(raw)) {
       const cand = c as Partial<Citation>;
@@ -277,6 +318,7 @@ export const searchDocuments = onCall(
       if (!quote) continue;
       if (!forMatch(src).includes(forMatch(quote))) {
         logger.info("Dropped unverifiable quote.", {doc: doc.id, quote});
+        dropped++;
         continue;
       }
       out.push({
@@ -288,5 +330,20 @@ export const searchDocuments = onCall(
       });
     }
     out.sort((a, b) => a.rank - b.rank);
-    return {citations: out.slice(0, 4)};
+    const citations = out.slice(0, 4);
+
+    await recordSearch(db, {
+      ...base,
+      ok: true,
+      model: usedModel,
+      fallback: usedModel !== MODELS[0],
+      citations: citations.length,
+      dropped,
+      promptTokens: result.promptTokens,
+      cachedTokens: result.cachedTokens,
+      completionTokens: result.completionTokens,
+      cost: result.cost,
+      durationMs: Date.now() - started,
+    });
+    return {citations};
   });

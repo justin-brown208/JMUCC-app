@@ -11,6 +11,7 @@
 import * as logger from "firebase-functions/logger";
 import {getMessaging} from "firebase-admin/messaging";
 import {type Firestore} from "firebase-admin/firestore";
+import {recordPush, tallyErrorCode} from "./ops.js";
 
 const MULTICAST_LIMIT = 500;
 // Firestore caps an `in` filter at 30 values.
@@ -33,7 +34,7 @@ export const pushToPersonIds = async (
 
   // Query only the recipients' registrations rather than scanning the whole
   // collection — `in` takes 30 ids at a time.
-  const tokens: Array<{docId: string; token: string}> = [];
+  const tokens: Array<{docId: string; personId: string; token: string}> = [];
   for (let i = 0; i < ids.length; i += IN_LIMIT) {
     const snap = await db
       .collection("fcmTokens")
@@ -42,16 +43,34 @@ export const pushToPersonIds = async (
     for (const doc of snap.docs) {
       const t = doc.data();
       if (typeof t.token === "string" && t.token) {
-        tokens.push({docId: doc.id, token: t.token});
+        tokens.push({docId: doc.id, personId: t.personId, token: t.token});
       }
     }
   }
+
+  const record = (r: {
+    delivered: number;
+    failed: number;
+    pruned: number;
+    errorCodes: Record<string, number>;
+  }) => {
+    const withDevice = new Set(tokens.map((t) => t.personId));
+    return recordPush(db, {
+      kind: payload.data?.kind ?? "request",
+      refId: payload.data?.requestId ?? "",
+      recipients: ids.length,
+      recipientsWithoutDevice: ids.filter((id) => !withDevice.has(id)).length,
+      tokens: tokens.length,
+      ...r,
+    });
+  };
 
   if (tokens.length === 0) {
     logger.warn("Request push had no devices to send to", {
       recipients: ids.length,
       title: payload.title,
     });
+    await record({delivered: 0, failed: 0, pruned: 0, errorCodes: {}});
     return;
   }
 
@@ -59,6 +78,8 @@ export const pushToPersonIds = async (
   const messaging = getMessaging();
   const stale: string[] = [];
   let delivered = 0;
+  let failed = 0;
+  const errorCodes: Record<string, number> = {};
   for (let i = 0; i < tokens.length; i += MULTICAST_LIMIT) {
     const batch = tokens.slice(i, i + MULTICAST_LIMIT);
     const res = await messaging.sendEachForMulticast({
@@ -74,7 +95,9 @@ export const pushToPersonIds = async (
     delivered += res.successCount;
     res.responses.forEach((r, idx) => {
       if (r.success) return;
+      failed++;
       const code = r.error?.code;
+      tallyErrorCode(errorCodes, code);
       if (
         code === "messaging/registration-token-not-registered" ||
         code === "messaging/invalid-registration-token" ||
@@ -97,4 +120,5 @@ export const pushToPersonIds = async (
     pruned: stale.length,
     title: payload.title,
   });
+  await record({delivered, failed, pruned: stale.length, errorCodes});
 };

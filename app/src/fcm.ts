@@ -21,6 +21,37 @@ function deviceId(): string {
   return id;
 }
 
+// The fcmTokens write doubles as the device's "last seen" on /ops, and the
+// dashboard pays one read per write — so an unchanged token for the same
+// person is re-saved at most every 15 minutes. A new token or a different
+// signed-in person always writes immediately (SCHEMA.md §4).
+const SAVED_KEY = "jmucc.tokenSaved";
+const RESAVE_MS = 15 * 60 * 1000;
+
+function shouldSaveToken(personId: string, token: string): boolean {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    if (!raw) return true;
+    const saved = JSON.parse(raw) as { personId?: string; token?: string; at?: number };
+    return (
+      saved.personId !== personId ||
+      saved.token !== token ||
+      typeof saved.at !== "number" ||
+      Date.now() - saved.at > RESAVE_MS
+    );
+  } catch {
+    return true;
+  }
+}
+
+function markTokenSaved(personId: string, token: string) {
+  try {
+    localStorage.setItem(SAVED_KEY, JSON.stringify({ personId, token, at: Date.now() }));
+  } catch {
+    // Storage unavailable — we'll just write every time.
+  }
+}
+
 /**
  * Where this device stands on push. Push used to fail silently in every one of
  * these states, which is why "the tech volunteer never got a notification" was
@@ -126,11 +157,14 @@ export async function registerForPush(
       return status;
     }
 
-    await setDoc(doc(db, "fcmTokens", deviceId()), {
-      personId,
-      token,
-      updatedAt: serverTimestamp(),
-    });
+    if (shouldSaveToken(personId, token)) {
+      await setDoc(doc(db, "fcmTokens", deviceId()), {
+        personId,
+        token,
+        updatedAt: serverTimestamp(),
+      });
+      markTokenSaved(personId, token);
+    }
 
     // A foreground message is NOT displayed by the browser — the SDK hands it
     // to this callback instead. It used to only console.log, so every request

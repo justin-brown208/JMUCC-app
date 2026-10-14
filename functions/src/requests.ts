@@ -36,6 +36,7 @@ import * as logger from "firebase-functions/logger";
 import {onDocumentWritten} from "firebase-functions/firestore";
 import {getFirestore, type Firestore} from "firebase-admin/firestore";
 import {pushToPersonIds} from "./push.js";
+import {recordProblem} from "./ops.js";
 
 type Data = FirebaseFirestore.DocumentData;
 
@@ -87,6 +88,8 @@ export const onRequestWrite = onDocumentWritten(
       await notifyForTransition(db, id, before, after, actorName);
     } catch (err) {
       logger.error("Request push failed", {id, queue, err: String(err)});
+      await recordProblem(db, "error", "onRequestWrite", "Request push failed",
+        {id, queue, err: String(err)});
     }
   }
 );
@@ -129,6 +132,8 @@ const stampActorName = async (
   const name = await personName(db, personId);
   if (!name) {
     logger.warn("Acting worker is not in the roster", {personId, field});
+    await recordProblem(db, "warn", "onRequestWrite",
+      "Acting worker is not in the roster", {personId, field});
     return "";
   }
   if (current !== name) await afterSnap.ref.update({[field]: name});
@@ -182,6 +187,8 @@ const notifyForTransition = async (
     const workers = await queueWorkerIds(db, after.queue);
     if (workers.length === 0) {
       logger.warn("New request has no queue workers", {id, queue: after.queue});
+      await recordProblem(db, "warn", "onRequestWrite",
+        "New request has no queue workers", {id, queue: after.queue});
       return;
     }
     const room = after.room ? ` · Room ${after.room}` : "";
