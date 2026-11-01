@@ -30,22 +30,15 @@ export interface RosterPerson {
   id: string;
   fullName: string;
   role: string;
-  school: string | null;
+  wave: string | null;
+  teamNumber: number | null;
   isAdmin: boolean;
-  managesAcademicQueue: boolean;
+  worksQueues: string[];
   lastOpenedAt: number | null;
-}
-
-export interface RosterSchool {
-  id: string;
-  name: string;
-  division: number | null;
-  teamLetter: string | null;
 }
 
 export interface Roster {
   people: RosterPerson[];
-  schools: RosterSchool[];
   loadedAt: Date;
 }
 

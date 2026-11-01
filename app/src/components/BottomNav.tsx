@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Profile } from "../auth";
-import { submittableQueues, workedQueue } from "../requests";
+import { submittableQueues, workedQueues } from "../requests";
 
 // The five possible destinations. Which ones actually show is role-aware
 // (see `tabsFor`): everyone gets Home/Rules/Messages; Requests appears for
@@ -62,7 +62,7 @@ const LABELS: Record<TabId, string> = {
 // The visible tabs for this person, left→right.
 export function tabsFor(profile: Profile): TabId[] {
   const tabs: TabId[] = ["home", "rules", "messages"];
-  if (submittableQueues(profile).length > 0 || workedQueue(profile)) {
+  if (submittableQueues(profile).length > 0 || workedQueues(profile).length > 0) {
     tabs.push("requests");
   }
   if (profile.isAdmin) tabs.push("admin");

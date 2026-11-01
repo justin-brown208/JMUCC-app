@@ -4,6 +4,11 @@
 > Keep this in sync with `firestore.rules` and the Cloud Functions — if the
 > data model changes, this doc changes in the same commit.
 
+> **`nextgen` branch:** this copy describes the NextGen Logistics test build
+> (JHMA, Nov 6 2026) — volunteers only, **no `schools` collection**, teams are
+> waves A–C × team numbers 1–4 stored **on the person**, queues are `tech` +
+> `runner` only, and queue access can be granted by a `worksQueues` flag.
+
 ## Mental model
 - **Collection** = a folder. **Document** = one item in it, with its own ID. **Fields** = the data inside a document.
 - **Security rules** (`firestore.rules`) gate what the *client* (the phone app) may read/write.
@@ -13,7 +18,6 @@
 | Collection | Client read | Client write | Reason |
 |---|---|---|---|
 | `people` | ❌ never | ❌ never | contains every PIN, admins included |
-| `schools` | admins only | ❌ (console/Functions) | source for the notification school dropdown |
 | `announcements` | only if addressed to you | ❌ (Functions) | your own message history |
 | `fcmTokens` | admins only | your own device | push delivery address; doubles as the device list on /ops |
 | `appOpens` | ❌ | your own record | open-tracking timestamp |
@@ -32,28 +36,24 @@ One document per person. **Document ID = the person's Firebase auth `uid`** (ass
 | Field | Type | Notes |
 |---|---|---|
 | `fullName` | string | e.g. "Jane Smith" |
-| `role` | string | one of the 8 roles (see CLAUDE.md → User) |
+| `role` | string | one of 6: `Organizer`, `Presentation Room Coordinator`, `Team Ambassador`, `Tech Volunteer`, `Floater`, `Runner` (the last 5 are the volunteer roles) |
 | `pin` | string | 6 digits, **plaintext**, stored as a string so leading zeros survive |
-| `school` | string \| null | the `schools` document ID this person belongs to; null for organizers and non-team volunteers |
+| `wave` | string \| null | `"A"`–`"C"`. Set for Team Ambassadors; null for everyone else (incl. PRCs, who serve every wave) |
+| `teamNumber` | number \| null | 1–4. A TA's team (`#3B` = 3 + B); a PRC's classroom, which hosts that team number from every wave; null for the teamless |
 | `isAdmin` | boolean | the **only** source of admin access — not the role |
-| `managesAcademicQueue` | boolean | grants access to the Academic request queue (the one VP Academics). Same flag-pattern as `isAdmin`; independent of role. Optional — absent/false for everyone else |
+| `worksQueues` | array\<string\> | extra request queues this person works on top of their role's own (e.g. a TA with `["runner"]`). Same flag-pattern as `isAdmin`; independent of role. Optional — absent = none |
 
 **Access: fully locked — no client read, no client write, ever.** If the client could read this, it could read every PIN. Login happens in a Function: it reads the roster with the Admin SDK, matches the submitted PIN, and returns a token plus that person's own name/role/etc. The client never sees the roster.
 
 **PIN is plaintext** (decision): simpler, and lets the OC read a PIN from the Firebase console to help someone who forgot theirs. Acceptable because the roster is never client-exposed.
 
+**Team lives on the person here** (unlike the JMUCC build's school lookup): NextGen's 12 team slots are fixed staffing assignments, not a ceremony mapping that gets published later, so there's nothing to fan out. Correct a person's `wave`/`teamNumber` in the console and the next send already uses it — targeting still resolves at send time, never from a token.
+
 ---
 
-## 2. `schools` — the 24 teams
-One document per school. **Document ID = the school ID** that `people.school` points at. This is the *single source of truth* for team assignment — `division`/`teamLetter` live here and nowhere else, resolved by in-memory lookup. Correct a school here and every attached person updates instantly.
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | string | e.g. "University of X" |
-| `division` | number \| null | 1–6; null until the OC publishes the ceremony mapping |
-| `teamLetter` | string \| null | "A"–"D" (within-division); null until published |
-
-**Access: admins may read** (the notification composer needs the dropdown). Writes via console/Functions only.
+## 2. `schools` — not used on this branch
+NextGen has no schools; the team lives on the person (§1). The collection is
+wiped by `dev-seed/nextgen-seed.mjs` and has no client access.
 
 ---
 
@@ -92,7 +92,7 @@ as "last seen, ±15 min". The throttle exists because the dashboard listens to
 this collection live and pays one read per write. A device that never granted
 push has no doc at all — `appOpens` is the per-person signal for those.
 
-**No** role/school/division/teamLetter here — targeting is resolved fresh at send time (Function loads people + schools, joins in memory, filters), so a token can never carry stale team data.
+**No** role/wave/teamNumber here — targeting is resolved fresh at send time (Function loads people, filters in memory), so a token can never carry stale team data.
 
 **Access: the client may write its own token document; admins may read** (the
 /ops device list). A token alone can't send a push — that needs the project's
@@ -120,7 +120,7 @@ optional short note plus a phone number to reach the requester.
 
 | Field | Type | Notes |
 |---|---|---|
-| `queue` | string | `"academic"` \| `"tech"` \| `"runner"` |
+| `queue` | string | `"tech"` \| `"runner"` (`"academic"` is dormant on this branch) |
 | `requesterId` | string | the requester's person id (== their uid) |
 | `requesterName` | string | denormalized from the roster so the manager can see who to call without reading `people`; validated against the roster on create |
 | `phone` | string | number to call back; saved locally on the client so it's typed once |
@@ -136,14 +136,13 @@ optional short note plus a phone number to reach the requester.
 | `closedByName` | string \| null | denormalized roster name of the resolver, for the requester's "X marked your request resolved". Trigger-written, same as `claimedByName` |
 | `closedAt` | timestamp \| null | set on resolve or cancel |
 
-**Queues & who works them** (config is hardcoded — static like the school list):
+**Queues & who works them** (queue list is hardcoded; workers come from role + `worksQueues`):
 | Queue | Worked by | Submitters |
 |---|---|---|
-| `academic` | the person with `managesAcademicQueue == true` (one VP) | Coaches **and** all volunteer roles |
-| `tech` | anyone with role *Tech Volunteer* | volunteer roles only |
-| `runner` | anyone with role *Runner* | volunteer roles only |
+| `tech` | role *Tech Volunteer*, **or** `"tech"` in `worksQueues` | every role |
+| `runner` | role *Runner*, **or** `"runner"` in `worksQueues` | every role |
 
-("Volunteer roles" = the 5 volunteer values. Delegates and Organizers don't submit. Coaches submit to `academic` only.)
+(The roster is all staff, so Organizers submit too. A person may work more than one queue.)
 
 **Position** = the count of still-active (`open`/`claimed`) tickets in the same
 queue with an earlier `createdAt`, +1 (1 = you're next). A manager may work
@@ -199,11 +198,10 @@ loop-guarded, so no later trigger corrects it. The recompute and the closing
 ticket's `position: null` happen in one transaction.
 
 **Access:**
-- **Create:** a requester may create a ticket where `requesterId == uid`, `status == "open"`, manager/position/timestamp fields empty, **and** their role is allowed to submit to that `queue` (checked via `get()` on their `people` doc: Coach → `academic` only; volunteer roles → any). `requesterName` must match their roster name.
-- **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`); **admins** may read all (the /ops queue-health panel — `status in [open, claimed]` ordered by `createdAt`, backed by a `{status, createdAt}` index).
+- **Create:** a requester may create a ticket where `requesterId == uid`, `status == "open"`, manager/position/timestamp fields empty, **and** their role is allowed to submit to that `queue` (checked via `get()` on their `people` doc: any of the 6 roles → either queue). `requesterName` must match their roster name.
+- **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match, or the queue in their `worksQueues` — resolved via `get()`); **admins** may read all (the /ops queue-health panel — `status in [open, claimed]` ordered by `createdAt`, backed by a `{status, createdAt}` index).
 - **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`), and may additionally **null out** `claimedBy`/`claimedByName`/`claimedAt` so a withdrawn ticket carries no half-live claim. The rule permits those three keys only when the new value is `null`, so cancel can never be used to forge or steal a claim. No other fields.
 - **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid` — and **only** that; `claimedByName` is not in the allowed key set, because the trigger writes it — only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved` (setting `closedBy == uid`; `closedByName` is likewise trigger-written), and **release** `claimed → open` (clearing `claimedBy`/`claimedByName`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
-- **Resolve (academic):** the `academic` queue has a single worker (the VP), so there's no claim step — the VP may transition `open → resolved` directly (a dedicated rule branch, `queue == "academic"` only). Tech/runner still go through `claimed → resolved`.
 - No client may change `queue`, `requesterId`, `createdAt`, or `position`.
 
 ---
@@ -219,9 +217,8 @@ resolves fresh at fire time, exactly like an immediate send.
 | `body` | string | the message text |
 | `silent` | boolean | quiet toggle |
 | `roles` | array\<string\> | recipient roles (the composer expands "All Volunteers") |
-| `divisions` | array\<number\> | optional narrowing filter |
-| `teamLetters` | array\<string\> | optional narrowing filter |
-| `school` | string \| null | optional single-school filter |
+| `waves` | array\<string\> | optional narrowing filter (`"A"`–`"C"`) |
+| `teamNumbers` | array\<number\> | optional narrowing filter (1–4) |
 | `sendAt` | timestamp | when to fire |
 | `status` | string | `"scheduled"` → `"sent"`, or `"canceled"` / `"failed"` (transient `"sending"` while the poller is mid-fire — the atomic claim) |
 | `createdBy` | string | admin uid who scheduled it |
@@ -334,8 +331,8 @@ event:
 
 | Object path | Meaning |
 | --- | --- |
-| `documents/rulebook.pdf` | Competition rulebook |
-| `documents/faq.pdf` | FAQ |
+| `documents/nextgen/rulebook.pdf` | NextGen rulebook (its own folder, so search can't cite the JMUCC one in the shared bucket) |
+| `documents/nextgen/faq.pdf` | NextGen FAQ |
 
 **Access: `documents/**` is publicly readable, no client write** (`storage.rules`).
 The content isn't secret — the viewer (PAGES.md §6) hands over the whole PDF — so
@@ -357,6 +354,6 @@ to quote. OC uploads both via the Firebase console; only `documents/` is exposed
 > a token — it keeps no attempt bookkeeping.
 
 ## Cross-cutting notes
-- **Team resolution is always a lookup, never denormalized.** A person's division/letter = read their `school`, read that school's `division`/`teamLetter`. Done in memory (24 schools, ~500 people — trivially cheap).
+- **Targeting always resolves at send time, never from a token.** On this branch a person's team is their own `wave`/`teamNumber`. A wave filter excludes PRCs (no wave); a team-number filter reaches both the TAs of that number and that room's PRC.
 - **Identity flows one way at login:** client POSTs PIN → Function validates against `people` → mints custom token (uid = person's doc ID) → client `signInWithCustomToken`. Rules then gate on `request.auth.uid`.
 - **`isAdmin` checks in rules** use a `get()` on the caller's `people` doc — rules functions can read documents even though clients cannot.

@@ -153,17 +153,11 @@ interface RosterPerson {
   id: string;
   fullName: string;
   role: string;
-  school: string | null;
+  wave: string | null;
+  teamNumber: number | null;
   isAdmin: boolean;
-  managesAcademicQueue: boolean;
+  worksQueues: string[];
   lastOpenedAt: number | null; // ms epoch; null = never opened Home
-}
-
-interface RosterSchool {
-  id: string;
-  name: string;
-  division: number | null;
-  teamLetter: string | null;
 }
 
 // The roster for the dashboard's joins — never the PIN. Called once per page
@@ -171,14 +165,12 @@ interface RosterSchool {
 export const getOpsRoster = onCall(
   async (request): Promise<{
     people: RosterPerson[];
-    schools: RosterSchool[];
   }> => {
     const db = getFirestore();
     await assertAdmin(db, request.auth?.uid);
 
-    const [peopleSnap, schoolsSnap, opensSnap] = await Promise.all([
+    const [peopleSnap, opensSnap] = await Promise.all([
       db.collection("people").get(),
-      db.collection("schools").get(),
       db.collection("appOpens").get(),
     ]);
 
@@ -194,22 +186,14 @@ export const getOpsRoster = onCall(
         id: doc.id,
         fullName: String(p.fullName ?? ""),
         role: String(p.role ?? ""),
-        school: p.school ?? null,
+        wave: p.wave ?? null,
+        teamNumber: p.teamNumber ?? null,
         isAdmin: p.isAdmin === true,
-        managesAcademicQueue: p.managesAcademicQueue === true,
+        worksQueues: Array.isArray(p.worksQueues) ? p.worksQueues : [],
         lastOpenedAt: opened.get(doc.id) ?? null,
       };
     });
-    const schools = schoolsSnap.docs.map((doc) => {
-      const s = doc.data();
-      return {
-        id: doc.id,
-        name: String(s.name ?? ""),
-        division: s.division ?? null,
-        teamLetter: s.teamLetter ?? null,
-      };
-    });
-    return {people, schools};
+    return {people};
   });
 
 // Client-side errors (uncaught exceptions / rejections). Signed-in callers

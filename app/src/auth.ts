@@ -9,10 +9,11 @@ export interface Profile {
   fullName: string;
   role: string;
   isAdmin: boolean;
-  managesAcademicQueue: boolean;
-  school: string | null;
-  division: number | null;
-  teamLetter: string | null;
+  /** Queues worked on top of the role's own (e.g. a TA who also runs). */
+  worksQueues: string[];
+  /** A Team Ambassador has both; a PRC only the number of their classroom. */
+  wave: string | null;
+  teamNumber: number | null;
 }
 
 interface AuthResult {
@@ -26,7 +27,10 @@ export function getCachedProfile(): Profile | null {
   const raw = localStorage.getItem(PROFILE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as Profile;
+    const p = JSON.parse(raw) as Profile;
+    // A profile cached by the main JMUCC build has none of the NextGen team
+    // fields — treat it as signed out so the person re-enters a PIN.
+    return Array.isArray(p.worksQueues) ? p : null;
   } catch {
     return null;
   }

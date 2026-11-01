@@ -50,9 +50,8 @@ export const scheduleNotification = onCall(
       body: data.body.trim(),
       silent: data.silent === true,
       roles: data.roles,
-      divisions: data.divisions ?? [],
-      teamLetters: data.teamLetters ?? [],
-      school: data.school || null,
+      waves: data.waves ?? [],
+      teamNumbers: data.teamNumbers ?? [],
       sendAt: Timestamp.fromMillis(millis),
       status: "scheduled",
       createdBy: request.auth?.uid,
@@ -120,9 +119,8 @@ export const runScheduledSends = onSchedule("every 1 minutes", async () => {
         body: data.body,
         silent: data.silent,
         roles: data.roles ?? [],
-        divisions: data.divisions ?? [],
-        teamLetters: data.teamLetters ?? [],
-        school: data.school ?? null,
+        waves: data.waves ?? [],
+        teamNumbers: data.teamNumbers ?? [],
       });
       await ref.update({
         status: "sent",

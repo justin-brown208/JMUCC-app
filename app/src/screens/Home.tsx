@@ -12,13 +12,7 @@ import { PushStatusBanner } from "../components/PushStatusBanner";
  * the schedule widget, and the latest announcement. All navigation now lives in
  * the bottom bar, so Home is content-only.
  */
-export function Home({
-  profile,
-  onOpenFullWeek,
-}: {
-  profile: Profile;
-  onOpenFullWeek: () => void;
-}) {
+export function Home({ profile }: { profile: Profile }) {
   const firstName = profile.fullName.split(" ")[0];
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -58,7 +52,7 @@ export function Home({
         <span className="greeting">Hello {firstName}</span>
         <span className="help">
           {profile.role}
-          {profile.teamLetter ? ` · Team ${profile.teamLetter}` : ""}
+          {teamLabel(profile)}
         </span>
       </button>
 
@@ -70,7 +64,7 @@ export function Home({
 
       <PushStatusBanner />
 
-      <ScheduleWidget profile={profile} onViewFullWeek={onOpenFullWeek} />
+      <ScheduleWidget profile={profile} />
 
       <div className="field">
         <span className="label">Latest message</span>
@@ -86,4 +80,11 @@ export function Home({
       </div>
     </div>
   );
+}
+
+// " · Team #3B" for a Team Ambassador; " · Room #3" for a PRC, whose classroom
+// hosts team #3 from every wave; nothing for the teamless.
+function teamLabel(p: Profile): string {
+  if (p.teamNumber == null) return "";
+  return p.wave ? ` · Team #${p.teamNumber}${p.wave}` : ` · Room #${p.teamNumber}`;
 }

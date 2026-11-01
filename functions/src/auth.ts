@@ -5,7 +5,7 @@
  * it up in the `people` roster (Admin SDK, so it bypasses the client-facing
  * rules that keep the roster secret), mints a Firebase custom token whose uid
  * is the person's document id, and returns a minimal profile the client caches
- * for the "Hello" greeting, calendar merging, and admin gating.
+ * for the "Hello" greeting, calendar merging, and admin/queue gating.
  *
  * The client then calls signInWithCustomToken(token); from that point on,
  * request.auth.uid === the person's document id and normal rules apply.
@@ -25,10 +25,9 @@ interface AuthResult {
     fullName: string;
     role: string;
     isAdmin: boolean;
-    managesAcademicQueue: boolean;
-    school: string | null;
-    division: number | null;
-    teamLetter: string | null;
+    worksQueues: string[];
+    wave: string | null;
+    teamNumber: number | null;
   };
 }
 
@@ -64,19 +63,6 @@ export const authenticateWithPin = onCall(
     const personDoc = snap.docs[0];
     const person = personDoc.data();
 
-    // Resolve team via the school lookup — the single source of truth for
-    // division/teamLetter. Null for anyone without a school.
-    let division: number | null = null;
-    let teamLetter: string | null = null;
-    if (person.school) {
-      const schoolDoc = await db.collection("schools").doc(person.school).get();
-      if (schoolDoc.exists) {
-        const school = schoolDoc.data() ?? {};
-        division = school.division ?? null;
-        teamLetter = school.teamLetter ?? null;
-      }
-    }
-
     const token = await getAuth().createCustomToken(personDoc.id);
 
     return {
@@ -85,10 +71,13 @@ export const authenticateWithPin = onCall(
         fullName: person.fullName,
         role: person.role,
         isAdmin: person.isAdmin === true,
-        managesAcademicQueue: person.managesAcademicQueue === true,
-        school: person.school ?? null,
-        division,
-        teamLetter,
+        worksQueues: Array.isArray(person.worksQueues) ?
+          person.worksQueues :
+          [],
+        // The team lives on the person (NextGen has no schools): a Team
+        // Ambassador has both, a PRC only the number of their classroom.
+        wave: person.wave ?? null,
+        teamNumber: person.teamNumber ?? null,
       },
     };
   });

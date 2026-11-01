@@ -174,7 +174,7 @@ export async function registerForPush(
       foregroundBound = true;
       onMessage(messaging, (payload) => {
         const detail: ForegroundPush = {
-          title: payload.notification?.title ?? "JMUCC",
+          title: payload.notification?.title ?? "JHMA",
           body: payload.notification?.body ?? "",
           data: (payload.data as Record<string, string>) ?? {},
         };

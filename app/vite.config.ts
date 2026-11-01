@@ -9,9 +9,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-192x192.png', 'icons/icon-512x512.png'],
       manifest: {
-        name: 'JMUCC Case Competition',
-        short_name: 'JMUCC',
-        description: 'JMUCC case competition companion app.',
+        // short_name is what the OS appends to every push ("…from JHMA").
+        name: 'JHMA Case Competition',
+        short_name: 'JHMA',
+        description: 'JHMA case competition companion app.',
         // Matches the top of the page gradient, so the OS status bar blends in.
         theme_color: '#213957',
         // Matches the icon's own background, so it melts into the splash screen.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
-import { getCachedProfile, type Profile } from "./auth";
+import { getCachedProfile, logout, type Profile } from "./auth";
 import { subscribeRequestsBadge, type QueueId } from "./requests";
 import { Registration } from "./screens/Registration";
 import { Home } from "./screens/Home";
@@ -9,7 +9,6 @@ import { PreviousMessages } from "./screens/PreviousMessages";
 import { Compose } from "./screens/admin/Compose";
 import { Tracking } from "./screens/admin/Tracking";
 import { Scheduled } from "./screens/admin/Scheduled";
-import { FullWeek } from "./screens/FullWeek";
 import { SubmitRequest } from "./screens/SubmitRequest";
 import { Requests } from "./screens/Requests";
 import { RulesSearch } from "./screens/RulesSearch";
@@ -25,7 +24,6 @@ import type { SourceDoc } from "./searchConfig";
 // screen a tab lands on when tapped.
 export type View =
   | "home"
-  | "fullweek"
   | "rules"
   | "pdf"
   | "messages"
@@ -37,7 +35,6 @@ export type View =
 
 const VIEW_TAB: Record<View, TabId> = {
   home: "home",
-  fullweek: "home",
   rules: "rules",
   pdf: "rules",
   messages: "messages",
@@ -79,7 +76,11 @@ function App() {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
-      setProfile(user ? getCachedProfile() : null);
+      const cached = user ? getCachedProfile() : null;
+      // A session with no usable profile (e.g. one left by the main JMUCC
+      // build) can't be gated correctly — end it so the PIN screen is clean.
+      if (user && !cached) void logout();
+      setProfile(cached);
       setView("home"); // always land on Home across sign-in/out
     });
   }, []);
@@ -98,8 +99,6 @@ function App() {
 
   function renderView() {
     switch (view) {
-      case "fullweek":
-        return <FullWeek onBack={() => setView("home")} />;
       case "rules":
         return (
           <RulesSearch
@@ -138,15 +137,11 @@ function App() {
   }
 
   function home() {
-    return <Home profile={profile!} onOpenFullWeek={() => setView("fullweek")} />;
+    return <Home profile={profile!} />;
   }
 
-  // Full-bleed screens (the schedule poster) drop the nav's fade scrim so it
-  // can't darken their artwork; everything else keeps it.
-  const immersive = view === "fullweek";
-
   return (
-    <div className={"app-shell has-nav" + (immersive ? " immersive" : "")}>
+    <div className="app-shell has-nav">
       {screen}
       <BottomNav
         profile={profile}

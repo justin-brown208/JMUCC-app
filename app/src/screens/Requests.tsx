@@ -4,7 +4,7 @@ import { QueuePanel } from "../components/QueuePanel";
 import { PushStatusBanner } from "../components/PushStatusBanner";
 import {
   submittableQueues,
-  workedQueue,
+  workedQueues,
   QUEUE_META,
   type QueueId,
 } from "../requests";
@@ -13,9 +13,11 @@ import {
  * Requests tab — the combined help-desk hub (PAGES.md §9–10).
  *
  *  - A queue worker's main job is their queue, so it's the primary content:
- *    the live tickets render inline. Their own requests + a small "need help
- *    yourself?" submit sit below.
- *  - A pure submitter (e.g. a Coach) just gets submit buttons + their tickets.
+ *    the live tickets render inline — one panel per queue they work (a TA
+ *    flagged for the runner queue gets just that one). Their own requests +
+ *    a small "need help yourself?" submit sit below.
+ *  - A pure submitter (e.g. a Floater) just gets submit buttons + their
+ *    tickets.
  */
 export function Requests({
   profile,
@@ -25,14 +27,20 @@ export function Requests({
   onOpenSubmit: (queue: QueueId) => void;
 }) {
   const canSubmit = submittableQueues(profile);
-  const worksQueue = workedQueue(profile);
+  const worked = workedQueues(profile);
 
-  if (worksQueue) {
+  if (worked.length > 0) {
     return (
       <div className="screen">
-        <h1 className="title">{QUEUE_META[worksQueue].workerTitle}</h1>
+        <h1 className="title">{QUEUE_META[worked[0]].workerTitle}</h1>
         <PushStatusBanner worker />
-        <QueuePanel queue={worksQueue} />
+        <QueuePanel queue={worked[0]} />
+        {worked.slice(1).map((q) => (
+          <div key={q} className="field">
+            <h2 className="title">{QUEUE_META[q].workerTitle}</h2>
+            <QueuePanel queue={q} />
+          </div>
+        ))}
 
         <MyRequests />
 

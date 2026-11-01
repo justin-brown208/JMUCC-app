@@ -1,5 +1,4 @@
 import type { Profile } from "./auth";
-import { VOLUNTEER_ROLES } from "./constants";
 import { CALENDAR_API_KEY, CALENDARS } from "./calendarConfig";
 
 export interface ScheduleEvent {
@@ -13,26 +12,27 @@ export interface ScheduleEvent {
 }
 
 const PLACEHOLDER = /^PASTE_/;
-const CACHE_KEY = "jmucc.schedule";
+// Its own key, so events cached by the JMUCC build never paint here.
+const CACHE_KEY = "nextgen.schedule";
 
-// The calendars a person sees: Global + their one role-group calendar + (if
-// they have a team) their team-letter calendar. A Team Ambassador is a
-// volunteer role with a team, so this naturally yields Global + Volunteers +
-// Team X — no special-casing (see CLAUDE.md → Calendar).
+// The calendars a person sees: Global + their role's calendar + (if they have
+// a wave) that wave's calendar. Unfilled calendar IDs are dropped.
+const ROLE_CALENDAR: Record<string, keyof typeof CALENDARS> = {
+  Organizer: "organizers",
+  "Team Ambassador": "teamAmbassadors",
+  "Presentation Room Coordinator": "prcs",
+  "Tech Volunteer": "tech",
+  Floater: "floaters",
+  Runner: "runners",
+};
+
 function calendarIdsFor(profile: Profile): string[] {
   const ids: string[] = [CALENDARS.global];
-
-  if (profile.role === "Delegate") ids.push(CALENDARS.delegates);
-  else if (profile.role === "Coach") ids.push(CALENDARS.coaches);
-  else if (profile.role === "Organizer") ids.push(CALENDARS.organizers);
-  else if (VOLUNTEER_ROLES.includes(profile.role as never)) {
-    ids.push(CALENDARS.volunteers);
-  }
-
-  const team =
-    profile.teamLetter &&
-    CALENDARS[`team${profile.teamLetter}` as keyof typeof CALENDARS];
-  if (team) ids.push(team);
+  const role = ROLE_CALENDAR[profile.role];
+  if (role) ids.push(CALENDARS[role]);
+  const wave =
+    profile.wave && CALENDARS[`wave${profile.wave}` as keyof typeof CALENDARS];
+  if (wave) ids.push(wave);
 
   // Drop unfilled placeholders + dedupe.
   return [...new Set(ids.filter((id) => id && !PLACEHOLDER.test(id)))];
@@ -120,9 +120,12 @@ export function cachedSchedule(): ScheduleEvent[] | null {
  * the next visit (stale-while-revalidate).
  */
 export async function loadSchedule(profile: Profile): Promise<ScheduleEvent[]> {
-  if (!CALENDAR_API_KEY || PLACEHOLDER.test(CALENDAR_API_KEY)) return [];
   const ids = calendarIdsFor(profile);
-  if (ids.length === 0) return [];
+  if (!CALENDAR_API_KEY || PLACEHOLDER.test(CALENDAR_API_KEY) || ids.length === 0) {
+    // Nothing configured: clear the cache too, or the last result paints forever.
+    localStorage.removeItem(CACHE_KEY);
+    return [];
+  }
 
   const timeMin = new Date().toISOString();
   const perCalendar = await Promise.all(

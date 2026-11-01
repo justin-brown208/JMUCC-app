@@ -65,8 +65,7 @@ body {
    a web page. The viewport meta handles Android; iOS Safari ignores
    user-scalable, so this is what actually stops it there: allowing only
    one-finger panning excludes both pinch and double-tap zoom, while leaving
-   normal scrolling intact. `touch-action` is per-element, not inherited, so
-   the Full Week viewer re-enables full gesture control for itself below.
+   normal scrolling intact.
    Trade-off: this also removes pinch-to-zoom as an accessibility affordance —
    deliberate, and the reason every body font size stays >= 13px. */
 html,
@@ -789,71 +788,6 @@ body::before {
   flex-shrink: 0;
 }
 
-/* --- Full Week schedule image viewer ---
-   The one screen that ignores the centered `.screen` column: the poster is the
-   content, so the viewer is pinned to the viewport and runs edge to edge,
-   stopping only at the top of the bottom nav (--nav-height). */
-.fullweek {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: var(--nav-height);
-  overflow: hidden;
-}
-/* react-zoom-pan-pinch's two layers: the pannable window, then the transformed
-   content. Both must fill so the image centers in the whole area, not in a
-   shrink-wrapped box. */
-.fullweek-wrapper,
-.fullweek-content {
-  width: 100% !important;
-  height: 100% !important;
-  /* The one place zoom IS wanted. react-zoom-pan-pinch drives the transform
-     from its own touch handlers and sets no touch-action itself, so opt out of
-     the page-wide pan-only rule and hand it every gesture. */
-  touch-action: none;
-}
-.fullweek-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* Fit the whole poster on entry; zoom takes it from there. */
-.fullweek-img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-/* The only chrome: a back chip floating over the image, kept legible on light
-   or dark artwork by its own dark pill rather than by the page behind it. */
-.fullweek-back {
-  position: absolute;
-  top: calc(12px + env(safe-area-inset-top));
-  left: calc(12px + env(safe-area-inset-left));
-  z-index: 2;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: 14px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.fullweek-empty {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  margin: 0;
-  padding: 24px;
-  box-sizing: border-box;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
 /* Full-document PDF viewer (§6): the browser renders the PDF inside this. */
 .pdf-frame {
   width: 100%;
@@ -1053,12 +987,6 @@ body::before {
   background: linear-gradient(to bottom, transparent, #000);
   pointer-events: none;
 }
-/* Full-bleed screens run their content right up to the bar, so the fade would
-   darken the artwork's bottom edge instead of the page background. */
-.app-shell.immersive .bottom-nav::before {
-  content: none;
-}
-
 /* One tab: stacked icon + label, flat, color carries state (gold vs muted). */
 .nav-item {
   position: relative;

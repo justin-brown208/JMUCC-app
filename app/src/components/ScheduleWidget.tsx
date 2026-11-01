@@ -4,16 +4,10 @@ import { loadSchedule, cachedSchedule, type ScheduleEvent } from "../schedule";
 
 /**
  * Home schedule widget (PAGES.md §2): the current/next event shown large, a few
- * later ones smaller beneath, and a View Full Week button. Paints instantly from
+ * later ones smaller beneath. Paints instantly from
  * the cached schedule, then refreshes from Google Calendar in the background.
  */
-export function ScheduleWidget({
-  profile,
-  onViewFullWeek,
-}: {
-  profile: Profile;
-  onViewFullWeek: () => void;
-}) {
+export function ScheduleWidget({ profile }: { profile: Profile }) {
   const [events, setEvents] = useState<ScheduleEvent[]>(
     () => cachedSchedule() ?? []
   );
@@ -62,10 +56,6 @@ export function ScheduleWidget({
           {loaded ? "No upcoming events." : "Loading schedule…"}
         </p>
       )}
-
-      <button className="btn" type="button" onClick={onViewFullWeek}>
-        View Full Week
-      </button>
     </div>
   );
 }

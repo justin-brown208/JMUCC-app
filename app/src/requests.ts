@@ -16,8 +16,8 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
-import { VOLUNTEER_ROLES } from "./constants";
 import type { Profile } from "./auth";
+import { ROLES } from "./constants";
 
 export type QueueId = "academic" | "tech" | "runner";
 export type RequestStatus = "open" | "claimed" | "resolved" | "canceled";
@@ -63,22 +63,26 @@ export const QUEUE_META: Record<
   },
 };
 
-// Which queues this person may submit to (mirrors the security rule): the 5
-// volunteer roles → all three; Coaches → academic only; everyone else → none.
+// NextGen runs two queues; the academic one (and its type/labels) stays
+// dormant from the JMUCC build.
+const LIVE_QUEUES: QueueId[] = ["tech", "runner"];
+const QUEUE_ROLE: Partial<Record<QueueId, string>> = {
+  tech: "Tech Volunteer",
+  runner: "Runner",
+};
+
+// Which queues this person may submit to (mirrors the security rule): the
+// roster is all staff, so every known role may submit to both.
 export function submittableQueues(profile: Profile): QueueId[] {
-  if (VOLUNTEER_ROLES.includes(profile.role as never)) {
-    return ["academic", "tech", "runner"];
-  }
-  if (profile.role === "Coach") return ["academic"];
-  return [];
+  return ROLES.includes(profile.role as never) ? LIVE_QUEUES : [];
 }
 
-// Which single queue this person works, if any.
-export function workedQueue(profile: Profile): QueueId | null {
-  if (profile.role === "Tech Volunteer") return "tech";
-  if (profile.role === "Runner") return "runner";
-  if (profile.managesAcademicQueue) return "academic";
-  return null;
+// The queues this person works: their role's own, plus any listed in their
+// worksQueues flag (mirrors isQueueWorker in the rules). Usually zero or one.
+export function workedQueues(profile: Profile): QueueId[] {
+  return LIVE_QUEUES.filter(
+    (q) => profile.role === QUEUE_ROLE[q] || profile.worksQueues.includes(q)
+  );
 }
 
 export const isActive = (t: RequestTicket): boolean =>
@@ -483,10 +487,11 @@ export function subscribeRequestsBadge(
   profile: Profile,
   onCount: (count: number) => void
 ): Unsubscribe {
-  const worked = workedQueue(profile);
-  let queueCount = 0;
+  const worked = workedQueues(profile);
+  const queueCounts = new Map<QueueId, number>();
   let mineCount = 0;
-  const emit = () => onCount(queueCount + mineCount);
+  const emit = () =>
+    onCount([...queueCounts.values()].reduce((a, b) => a + b, 0) + mineCount);
 
   let mine: RequestTicket[] = [];
   const recount = () => {
@@ -502,16 +507,16 @@ export function subscribeRequestsBadge(
   // next snapshot (dismissal is local, so no snapshot is coming).
   dismissWatchers.add(recount);
 
-  const stopQueue = worked ?
-    subscribeQueue(worked, (tickets) => {
-      queueCount = tickets.filter((t) => t.status === "open").length;
+  const stopQueues = worked.map((q) =>
+    subscribeQueue(q, (tickets) => {
+      queueCounts.set(q, tickets.filter((t) => t.status === "open").length);
       emit();
-    }) :
-    null;
+    })
+  );
 
   return () => {
     dismissWatchers.delete(recount);
     stopMine();
-    stopQueue?.();
+    stopQueues.forEach((stop) => stop());
   };
 }

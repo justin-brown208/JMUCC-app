@@ -4,7 +4,7 @@
  * For one sent notification, report how many recipients have opened the app
  * since it went out — a recipient counts as "opened" when their
  * appOpens.lastOpenedAt is at or after the announcement's sentAt. The breakdown
- * is grouped two ways (by role and by team/school) with named lists for
+ * is grouped two ways (by role and by team) with named lists for
  * drill-down.
  *
  * This must be a Function: appOpens and people are both client-locked, so the
@@ -61,20 +61,14 @@ export const getMessageTracking = onCall(
     const sentAt = (ann.sentAt as Timestamp | undefined) ?? null;
     const sentMs = sentAt ? sentAt.toMillis() : null;
 
-    // Load roster, school names, and open-times in parallel.
-    const [peopleSnap, schoolsSnap, opensSnap] = await Promise.all([
+    // Load roster and open-times in parallel.
+    const [peopleSnap, opensSnap] = await Promise.all([
       db.collection("people").get(),
-      db.collection("schools").get(),
       db.collection("appOpens").get(),
     ]);
 
     const people = new Map<string, FirebaseFirestore.DocumentData>();
     for (const d of peopleSnap.docs) people.set(d.id, d.data());
-
-    const schoolName = new Map<string, string>();
-    for (const d of schoolsSnap.docs) {
-      schoolName.set(d.id, (d.data().name as string) ?? d.id);
-    }
 
     const openedMs = new Map<string, number>();
     for (const d of opensSnap.docs) {
@@ -110,10 +104,7 @@ export const getMessageTracking = onCall(
 
       add(roleGroups, (p.role as string) ?? "Unknown", name, opened);
 
-      const team = p.school ?
-        (schoolName.get(p.school) ?? (p.school as string)) :
-        NO_TEAM;
-      add(teamGroups, team, name, opened);
+      add(teamGroups, teamLabel(p), name, opened);
     }
 
     return {
@@ -147,6 +138,15 @@ const roleOrder = (a: string, b: string): number => {
   const ib = ROLES.indexOf(b as never);
   return (ia < 0 ? ROLES.length : ia) - (ib < 0 ? ROLES.length : ib);
 };
+
+// A TA's team reads "#3B"; a PRC has only a number (their classroom hosts
+// that team from every wave), so theirs reads "Room #3".
+const teamLabel = (p: FirebaseFirestore.DocumentData): string =>
+  p.teamNumber == null ?
+    NO_TEAM :
+    p.wave ?
+      `#${p.teamNumber}${p.wave}` :
+      `Room #${p.teamNumber}`;
 
 // Teams alphabetical, but "No team" always last.
 const teamOrder = (a: string, b: string): number => {

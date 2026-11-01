@@ -3,20 +3,19 @@
  *
  * An admin composes a message in the app (Admin > Compose, PAGES.md section 7):
  * a preset title, a body, an optional silent flag, one or more roles, and
- * optional narrowing filters (divisions / team letters / one school). This
- * callable does the targeting the FCM token can't:
+ * optional narrowing filters (waves / team numbers). This callable does the
+ * targeting the FCM token can't:
  *
- *   1. Loads people + schools with the Admin SDK (the roster is client-locked).
- *   2. Resolves each person's team in memory via their school (the single
- *      source of truth for division/teamLetter, never denormalized).
- *   3. Filters people by role, then narrows by division/letter/school.
- *   4. Writes the announcement doc with the computed recipientIds (that array
+ *   1. Loads people with the Admin SDK (the roster is client-locked).
+ *   2. Filters people by role, then narrows by wave/team number, read from
+ *      the person's own `wave` / `teamNumber` (NextGen has no schools).
+ *   3. Writes the announcement doc with the computed recipientIds (that array
  *      drives both message history and open-tracking).
- *   5. Fans out FCM to those recipients' device tokens, pruning dead ones.
+ *   4. Fans out FCM to those recipients' device tokens, pruning dead ones.
  *
- * Resolving teams at send time (not from a cached field on the token) is
- * deliberate: if the OC corrects a school's division mid-event, the very next
- * send is already correct, with no fan-out to re-run.
+ * Resolving the audience at send time (not from a cached field on the token)
+ * is deliberate: correct someone's team in the console mid-event and the very
+ * next send is already right, with no fan-out to re-run.
  */
 
 import {onCall, HttpsError} from "firebase-functions/https";
@@ -30,7 +29,8 @@ import {getMessaging} from "firebase-admin/messaging";
 import {
   ROLES,
   NOTIFICATION_TITLES,
-  TEAM_LETTERS,
+  WAVES,
+  TEAM_NUMBERS,
 } from "./constants.js";
 import {assertAdmin} from "./shared.js";
 import {recordPush, tallyErrorCode} from "./ops.js";
@@ -40,9 +40,8 @@ export interface SendPayload {
   body: string;
   silent?: boolean;
   roles: string[];
-  divisions?: number[];
-  teamLetters?: string[];
-  school?: string | null;
+  waves?: string[];
+  teamNumbers?: number[];
 }
 
 export interface SendResult {
@@ -53,7 +52,6 @@ export interface SendResult {
   failed: number; // FCM failures
 }
 
-type Team = {division: number | null; teamLetter: string | null};
 type TokenRef = {docId: string; personId: string; token: string};
 
 /** FCM caps a multicast at 500 tokens. */
@@ -76,12 +74,8 @@ export const performSend = async (
   data: SendPayload
 ): Promise<SendResult> => {
   const roles = new Set<string>(data.roles);
-  const divisions = data.divisions?.length ? new Set(data.divisions) : null;
-  const letters = data.teamLetters?.length ? new Set(data.teamLetters) : null;
-  const school = data.school || null;
-
-  // Team lookup: schoolId -> {division, teamLetter}.
-  const teamOf = await loadTeamLookup(db);
+  const waves = data.waves?.length ? new Set(data.waves) : null;
+  const numbers = data.teamNumbers?.length ? new Set(data.teamNumbers) : null;
 
   // Filter the roster in memory.
   const peopleSnap = await db.collection("people").get();
@@ -90,15 +84,11 @@ export const performSend = async (
     const p = doc.data();
     if (!roles.has(p.role)) continue;
 
-    const team = p.school ? teamOf.get(p.school) : undefined;
-    const division = team?.division ?? null;
-    const teamLetter = team?.teamLetter ?? null;
-
-    // Narrowing filters. Someone with no team can't match a team-based filter,
-    // so setting one excludes the teamless (Organizers, etc.).
-    if (divisions && (division === null || !divisions.has(division))) continue;
-    if (letters && (teamLetter === null || !letters.has(teamLetter))) continue;
-    if (school && p.school !== school) continue;
+    // Narrowing filters. Someone without the field can't match a filter on
+    // it: a wave filter excludes PRCs (who have a team number but serve every
+    // wave), and either filter excludes the teamless (Organizers, Floaters…).
+    if (waves && !waves.has(p.wave)) continue;
+    if (numbers && !numbers.has(p.teamNumber)) continue;
 
     recipientIds.push(doc.id);
   }
@@ -197,38 +187,17 @@ export const validatePayload = (data: SendPayload): void => {
     }
   }
 
-  if (data.divisions !== undefined) {
-    const ok = Array.isArray(data.divisions) &&
-      data.divisions.every((d) => Number.isInteger(d) && d >= 1 && d <= 6);
-    if (!ok) throw bad("Divisions must be whole numbers 1–6.");
+  if (data.waves !== undefined) {
+    const ok = Array.isArray(data.waves) &&
+      data.waves.every((w) => (WAVES as readonly string[]).includes(w));
+    if (!ok) throw bad("Waves must be A–C.");
   }
-  if (data.teamLetters !== undefined) {
-    const letters = TEAM_LETTERS as readonly string[];
-    const ok = Array.isArray(data.teamLetters) &&
-      data.teamLetters.every((l) => letters.includes(l));
-    if (!ok) throw bad("Team letters must be A–D.");
+  if (data.teamNumbers !== undefined) {
+    const ok = Array.isArray(data.teamNumbers) &&
+      data.teamNumbers.every((n) =>
+        (TEAM_NUMBERS as readonly number[]).includes(n));
+    if (!ok) throw bad("Team numbers must be 1–4.");
   }
-  if (
-    data.school !== undefined &&
-    data.school !== null &&
-    typeof data.school !== "string"
-  ) {
-    throw bad("Bad school filter.");
-  }
-};
-
-// Build the schoolId -> team lookup used to resolve people's divisions.
-const loadTeamLookup = async (db: Firestore): Promise<Map<string, Team>> => {
-  const snap = await db.collection("schools").get();
-  const map = new Map<string, Team>();
-  for (const doc of snap.docs) {
-    const s = doc.data();
-    map.set(doc.id, {
-      division: s.division ?? null,
-      teamLetter: s.teamLetter ?? null,
-    });
-  }
-  return map;
 };
 
 // Collect the FCM tokens for the given recipients. With ~500 devices it's

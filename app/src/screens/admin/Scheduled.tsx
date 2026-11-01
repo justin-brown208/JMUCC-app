@@ -78,9 +78,7 @@ function ScheduledRow({
   onCancel: () => void;
 }) {
   const filtered =
-    item.divisions.length > 0 ||
-    item.teamLetters.length > 0 ||
-    item.school !== null;
+    item.waves.length > 0 || item.teamNumbers.length > 0;
   return (
     <article className="msg">
       <div className="sched-head">

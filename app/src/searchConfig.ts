@@ -9,9 +9,10 @@
 
 export type SourceDoc = "rulebook" | "faq";
 
+// NextGen's own folder (mirrors DOCS in functions/src/search.ts).
 export const DOC_PATHS: Record<SourceDoc, string> = {
-  rulebook: "documents/rulebook.pdf",
-  faq: "documents/faq.pdf",
+  rulebook: "documents/nextgen/rulebook.pdf",
+  faq: "documents/nextgen/faq.pdf",
 };
 
 export const DOC_LABELS: Record<SourceDoc, string> = {

@@ -1,17 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   NON_VOLUNTEER_ROLES,
   VOLUNTEER_ROLES,
   NOTIFICATION_TITLES,
-  DIVISIONS,
-  TEAM_LETTERS,
+  WAVES,
+  TEAM_NUMBERS,
 } from "../../constants";
-import {
-  loadSchools,
-  sendNotification,
-  type SchoolOption,
-  type SendResult,
-} from "../../notifications";
+import { sendNotification, type SendResult } from "../../notifications";
 import { scheduleNotification } from "../../scheduling";
 import { AdminNav } from "../../components/AdminNav";
 import type { View } from "../../App";
@@ -21,7 +16,7 @@ type Mode = "now" | "later";
 
 /**
  * Admin > Compose Notification (PAGES.md §7). Pick a preset title, write a body,
- * choose roles (the primary "who"), optionally narrow by division/letter/school,
+ * choose roles (the primary "who"), optionally narrow by wave/team number,
  * confirm the plain-language audience, and send via the sendNotification
  * function. Only reachable behind the isAdmin gate on Home.
  */
@@ -30,22 +25,14 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [body, setBody] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
   const [silent, setSilent] = useState(false);
-  const [divisions, setDivisions] = useState<number[]>([]);
-  const [letters, setLetters] = useState<string[]>([]);
-  const [school, setSchool] = useState<string>("");
-  const [schools, setSchools] = useState<SchoolOption[]>([]);
+  const [waves, setWaves] = useState<string[]>([]);
+  const [numbers, setNumbers] = useState<number[]>([]);
 
   const [mode, setMode] = useState<Mode>("now");
   const [sendAt, setSendAt] = useState(""); // datetime-local string
   const [phase, setPhase] = useState<Phase>("edit");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SendResult | null>(null);
-
-  useEffect(() => {
-    loadSchools()
-      .then(setSchools)
-      .catch(() => setSchools([]));
-  }, []);
 
   const allVolunteers = VOLUNTEER_ROLES.every((r) => roles.includes(r));
   const formReady = title !== null && body.trim() !== "" && roles.length > 0;
@@ -54,8 +41,8 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
   const canSubmit = formReady && timeReady;
 
   const summary = useMemo(
-    () => audience(roles, divisions, letters, school, schools),
-    [roles, divisions, letters, school, schools]
+    () => audience(roles, waves, numbers),
+    [roles, waves, numbers]
   );
 
   function toggle<T>(list: T[], value: T): T[] {
@@ -77,9 +64,8 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
     setBody("");
     setRoles([]);
     setSilent(false);
-    setDivisions([]);
-    setLetters([]);
-    setSchool("");
+    setWaves([]);
+    setNumbers([]);
     setMode("now");
     setSendAt("");
     setPhase("edit");
@@ -95,9 +81,8 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
       body: body.trim(),
       silent,
       roles,
-      divisions,
-      teamLetters: letters,
-      school: school || null,
+      waves,
+      teamNumbers: numbers,
     };
     try {
       if (mode === "now") {
@@ -330,54 +315,39 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
         <p className="filters-sub">All teams will be targeted if left blank</p>
 
         <div className="filter-section">
-          <span className="label">Division</span>
+          <span className="label">Wave</span>
           <div className="chip-row chip-row--fill">
-            {DIVISIONS.map((d) => (
+            {WAVES.map((w) => (
               <button
-                key={d}
+                key={w}
                 type="button"
-                className={"chip" + (divisions.includes(d) ? " selected" : "")}
-                onClick={() => setDivisions((prev) => toggle(prev, d))}
+                className={"chip" + (waves.includes(w) ? " selected" : "")}
+                onClick={() => setWaves((prev) => toggle(prev, w))}
               >
-                {d}
+                {w}
               </button>
             ))}
           </div>
         </div>
 
         <div className="filter-section">
-          <span className="label">Team Letter</span>
+          <span className="label">Team Number</span>
           <div className="chip-row chip-row--fill">
-            {TEAM_LETTERS.map((l) => (
+            {TEAM_NUMBERS.map((n) => (
               <button
-                key={l}
+                key={n}
                 type="button"
-                className={"chip" + (letters.includes(l) ? " selected" : "")}
-                onClick={() => setLetters((prev) => toggle(prev, l))}
+                className={"chip" + (numbers.includes(n) ? " selected" : "")}
+                onClick={() => setNumbers((prev) => toggle(prev, n))}
               >
-                {l}
+                #{n}
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="filter-section">
-          <span className="label">School</span>
-          <div className="select-wrap">
-            <select
-              className="select"
-              value={school}
-              onChange={(e) => setSchool(e.target.value)}
-            >
-              <option value="">Any school</option>
-              {schools.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <span className="select-caret">▾</span>
-          </div>
+          <p className="help">
+            A team number also reaches that room's PRC; a wave doesn't, since
+            each PRC hosts every wave.
+          </p>
         </div>
       </div>
     </div>
@@ -385,21 +355,12 @@ export function Compose({ onNavigate }: { onNavigate: (view: View) => void }) {
 }
 
 // Plain-language description of who the send targets (PAGES.md §7 confirmation).
-function audience(
-  roles: string[],
-  divisions: number[],
-  letters: string[],
-  school: string,
-  schools: SchoolOption[]
-): string {
+function audience(roles: string[], waves: string[], numbers: number[]): string {
   const roleStr = roles.join(", ");
   const parts: string[] = [];
-  if (divisions.length) {
-    parts.push("Division " + [...divisions].sort().join(", "));
-  }
-  if (letters.length) parts.push("Team " + [...letters].sort().join(", "));
-  if (school) {
-    parts.push(schools.find((s) => s.id === school)?.name ?? "one school");
+  if (waves.length) parts.push("Wave " + [...waves].sort().join(", "));
+  if (numbers.length) {
+    parts.push("Team #" + [...numbers].sort().join(", #"));
   }
   const narrow = parts.length ? " in " + parts.join(", ") : "";
   return `This goes to ${roleStr}${narrow}.`;

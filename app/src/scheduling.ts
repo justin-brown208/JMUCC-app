@@ -22,9 +22,8 @@ export interface ScheduledItem {
   body: string;
   silent: boolean;
   roles: string[];
-  divisions: number[];
-  teamLetters: string[];
-  school: string | null;
+  waves: string[];
+  teamNumbers: number[];
   sendAt: Date | null;
   status: ScheduleStatus;
   error: string | null;
@@ -64,9 +63,8 @@ export async function loadScheduled(): Promise<ScheduledItem[]> {
       body: (x.body as string) ?? "",
       silent: x.silent === true,
       roles: (x.roles as string[]) ?? [],
-      divisions: (x.divisions as number[]) ?? [],
-      teamLetters: (x.teamLetters as string[]) ?? [],
-      school: (x.school as string | null) ?? null,
+      waves: (x.waves as string[]) ?? [],
+      teamNumbers: (x.teamNumbers as number[]) ?? [],
       sendAt: ts?.toDate?.() ?? null,
       status: (x.status as ScheduleStatus) ?? "scheduled",
       error: (x.error as string | null) ?? null,

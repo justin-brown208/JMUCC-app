@@ -50,9 +50,11 @@ const CACHE_CONTROL: {type: "ephemeral"; ttl?: string} = {type: "ephemeral"};
 
 // The two static source PDFs. OC uploads these to Storage (Firebase console)
 // before the event; `id` is the client-facing key, `path` the Storage object.
+// NextGen keeps its own folder so search can never cite the JMUCC rulebook,
+// which shares this bucket.
 const DOCS = [
-  {id: "rulebook", label: "Rulebook", path: "documents/rulebook.pdf"},
-  {id: "faq", label: "FAQ", path: "documents/faq.pdf"},
+  {id: "rulebook", label: "Rulebook", path: "documents/nextgen/rulebook.pdf"},
+  {id: "faq", label: "FAQ", path: "documents/nextgen/faq.pdf"},
 ] as const;
 
 type DocId = (typeof DOCS)[number]["id"];

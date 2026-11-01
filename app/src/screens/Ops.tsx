@@ -55,9 +55,8 @@ const RECENT = 60 * MIN; // "in the last hour" for error/failure alerts
 const SEND_OVERDUE = 3 * MIN; // scheduled send past due and still pending
 
 const QUEUES = [
-  { id: "academic", label: "Academic (rules)", works: (p: RosterPerson) => p.managesAcademicQueue },
-  { id: "tech", label: "Tech", works: (p: RosterPerson) => p.role === "Tech Volunteer" },
-  { id: "runner", label: "Runner", works: (p: RosterPerson) => p.role === "Runner" },
+  { id: "tech", label: "Tech", works: (p: RosterPerson) => p.role === "Tech Volunteer" || p.worksQueues.includes("tech") },
+  { id: "runner", label: "Runner", works: (p: RosterPerson) => p.role === "Runner" || p.worksQueues.includes("runner") },
 ];
 
 // --- formatting -------------------------------------------------------------
@@ -229,7 +228,7 @@ function Ops({ profile }: { profile: Profile }) {
   return (
     <div className="ops">
       <header className="ops-header">
-        <h1>JMUCC Ops</h1>
+        <h1>JHMA Ops</h1>
         <div className="ops-header-meta">
           <span>
             Roster loaded {roster ? ago(roster.loadedAt, now) : "—"}{" "}

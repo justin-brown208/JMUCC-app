@@ -1,19 +1,21 @@
 /**
- * Shared domain constants. Kept in one place so the send function, the (future)
+ * Shared domain constants. Kept in one place so the send function, the
  * requests trigger, and validation all agree on the canonical values.
+ *
+ * NextGen branch: a volunteers-only event. Teams are 3 waves (A–C) × team
+ * numbers 1–4, stored directly on the person (`wave`, `teamNumber`) — there
+ * are no schools and no delegates/coaches.
  */
 
-// The flat list of 8 roles (see CLAUDE.md > User). "Volunteer" is a UI
-// grouping, never a stored value — the composer expands it to the 5 volunteer
-// roles before calling, so the function only ever sees real role values.
+// The flat list of 6 roles. "Volunteer" is a UI grouping, never a stored value
+// — the composer expands it to the 5 volunteer roles before calling, so the
+// function only ever sees real role values.
 export const ROLES = [
-  "Delegate",
-  "Coach",
   "Organizer",
   "Presentation Room Coordinator",
   "Team Ambassador",
   "Tech Volunteer",
-  "General Volunteer",
+  "Floater",
   "Runner",
 ] as const;
 
@@ -24,7 +26,7 @@ export const VOLUNTEER_ROLES: readonly Role[] = [
   "Presentation Room Coordinator",
   "Team Ambassador",
   "Tech Volunteer",
-  "General Volunteer",
+  "Floater",
   "Runner",
 ];
 
@@ -35,4 +37,26 @@ export const NOTIFICATION_TITLES = [
   "Reminder",
 ] as const;
 
-export const TEAM_LETTERS = ["A", "B", "C", "D"] as const;
+export const WAVES = ["A", "B", "C"] as const;
+export const TEAM_NUMBERS = [1, 2, 3, 4] as const;
+
+// The request queues. Who works one: its role (below) OR the queue listed in
+// the person's `worksQueues` flag — so a Team Ambassador can also run errands.
+export const QUEUES = ["tech", "runner"] as const;
+export const QUEUE_ROLE: Record<string, string> = {
+  tech: "Tech Volunteer",
+  runner: "Runner",
+};
+
+/**
+ * Does this person work the queue — by role or by the worksQueues flag?
+ * @param {object} person A people doc (role, optional worksQueues).
+ * @param {string} queue The queue id.
+ * @return {boolean} Whether they may work it.
+ */
+export const worksQueue = (
+  person: {role?: unknown; worksQueues?: unknown},
+  queue: string
+): boolean =>
+  person.role === QUEUE_ROLE[queue] ||
+  (Array.isArray(person.worksQueues) && person.worksQueues.includes(queue));

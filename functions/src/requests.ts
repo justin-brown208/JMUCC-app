@@ -37,6 +37,7 @@ import {onDocumentWritten} from "firebase-functions/firestore";
 import {getFirestore, type Firestore} from "firebase-admin/firestore";
 import {pushToPersonIds} from "./push.js";
 import {recordProblem} from "./ops.js";
+import {QUEUE_ROLE, worksQueue} from "./constants.js";
 
 type Data = FirebaseFirestore.DocumentData;
 
@@ -241,20 +242,23 @@ const notifyForTransition = async (
   // Release (claimed→open) stays silent — nothing changes for the requester.
 };
 
-// The people who work a queue: tech → Tech Volunteers, runner → Runners,
-// academic → whoever carries managesAcademicQueue.
+// The people who work a queue: its role (tech → Tech Volunteers, runner →
+// Runners) plus anyone carrying the queue in their `worksQueues` flag. Two
+// queries, merged — Firestore can't OR a field match with array-contains.
 const queueWorkerIds = async (
   db: Firestore,
   queue: string
 ): Promise<string[]> => {
   const people = db.collection("people");
-  const q = queue === "tech" ?
-    people.where("role", "==", "Tech Volunteer") :
-    queue === "runner" ?
-      people.where("role", "==", "Runner") :
-      people.where("managesAcademicQueue", "==", true);
-  const snap = await q.get();
-  return snap.docs.map((d) => d.id);
+  const [byRole, byFlag] = await Promise.all([
+    people.where("role", "==", QUEUE_ROLE[queue] ?? "").get(),
+    people.where("worksQueues", "array-contains", queue).get(),
+  ]);
+  const ids = new Set<string>();
+  for (const d of [...byRole.docs, ...byFlag.docs]) {
+    if (worksQueue(d.data(), queue)) ids.add(d.id);
+  }
+  return [...ids];
 };
 
 const queueLabel = (queue: string): string =>

@@ -12,7 +12,7 @@ rules_version = '2';
 // is locked out of nearly everything. A 6-digit PIN is the only credential.
 //
 // Client-facing surface is intentionally tiny:
-//   - reads:  schools (admins only), announcements (only if addressed to you),
+//   - reads:  announcements (only if addressed to you),
 //             fcmTokens / opsEvents / ops (admins only — the /ops dashboard)
 //   - writes: fcmTokens (your own device), appOpens (your own record)
 // Everything else is deny-all for clients.
@@ -23,12 +23,10 @@ rules_version = '2';
 //
 // Collection: people           (NO client access — contains all PINs)
 //   Document ID: person's auth uid
-//   Fields: fullName string, role string, pin string(6),
-//           school string|null, isAdmin bool
-//
-// Collection: schools          (client: admin read only)
-//   Document ID: school id
-//   Fields: name string, division number|null, teamLetter string|null
+//   Fields: fullName string, role string, pin string(6), isAdmin bool,
+//           wave "A"|"B"|"C"|null, teamNumber 1-4|null,
+//           worksQueues list<string> (optional; extra queues worked)
+//   (NextGen branch: no schools collection — the team lives on the person.)
 //
 // Collection: announcements    (client: read only if uid in recipientIds)
 //   Document ID: auto
@@ -87,25 +85,25 @@ service cloud.firestore {
 
     // The caller's own people doc data (role, flags, name). Same get()-on-people
     // trick as isAdmin() — reads a doc the client itself cannot read — used to
-    // gate request submit/work by role + the managesAcademicQueue flag.
+    // gate request submit/work by role + the worksQueues flag.
     function me() {
       return get(/databases/$(database)/documents/people/$(request.auth.uid)).data;
     }
 
-    // May the caller SUBMIT to this queue? The 5 volunteer roles → any queue;
-    // Coaches → academic only; Delegates/Organizers → none.
-    function canSubmitTo(queue) {
-      return me().role in ['Presentation Room Coordinator', 'Team Ambassador',
-          'Tech Volunteer', 'General Volunteer', 'Runner']
-        || (me().role == 'Coach' && queue == 'academic');
+    // May the caller SUBMIT to this queue? NextGen's roster is all staff, so
+    // every role may submit to either queue (Organizers included).
+    function canSubmitTo() {
+      return me().role in ['Organizer', 'Presentation Room Coordinator',
+          'Team Ambassador', 'Tech Volunteer', 'Floater', 'Runner'];
     }
 
-    // Does the caller WORK this queue? tech → Tech Volunteer; runner → Runner;
-    // academic → the managesAcademicQueue flag (absent treated as false).
+    // Does the caller WORK this queue? Its role (tech → Tech Volunteer, runner
+    // → Runner) OR the queue listed in their worksQueues flag (absent = none),
+    // so e.g. a Team Ambassador can also work the runner queue.
     function isQueueWorker(queue) {
       return (queue == 'tech' && me().role == 'Tech Volunteer')
         || (queue == 'runner' && me().role == 'Runner')
-        || (queue == 'academic' && me().get('managesAcademicQueue', false) == true);
+        || queue in me().get('worksQueues', []);
     }
 
     // -----------------------------------------------------------
@@ -134,7 +132,7 @@ service cloud.firestore {
           'phone', 'room', 'description', 'status', 'createdAt'])
         && d.keys().hasAll(['queue', 'requesterId', 'requesterName',
           'phone', 'status', 'createdAt'])
-        && d.queue in ['academic', 'tech', 'runner']
+        && d.queue in ['tech', 'runner']
         && d.requesterId == request.auth.uid
         && d.requesterName is string && d.requesterName.size() > 0
         && d.requesterName.size() < 120
@@ -154,15 +152,6 @@ service cloud.firestore {
     // -----------------------------------------------------------
     match /people/{personId} {
       allow read, write: if false;
-    }
-
-    // -----------------------------------------------------------
-    // schools — admins may read (notification composer dropdown).
-    // No client writes (console/Functions only).
-    // -----------------------------------------------------------
-    match /schools/{schoolId} {
-      allow read: if isAdmin();
-      allow write: if false;
     }
 
     // -----------------------------------------------------------
@@ -222,7 +211,7 @@ service cloud.firestore {
       allow create: if isAuthenticated()
         && isValidNewRequest(request.resource.data)
         && request.resource.data.requesterName == me().fullName
-        && canSubmitTo(request.resource.data.queue);
+        && canSubmitTo();
 
       allow update: if isAuthenticated() && (
         // Cancel — requester pulls their own still-active ticket. Cancelling a
@@ -257,17 +246,6 @@ service cloud.firestore {
         // stamped by the trigger, for the requester's "X marked this resolved".
         (isQueueWorker(resource.data.queue)
           && resource.data.status == 'claimed'
-          && request.resource.data.status == 'resolved'
-          && isNow(request.resource.data.closedAt)
-          && request.resource.data.closedBy == request.auth.uid
-          && request.resource.data.diff(resource.data)
-              .affectedKeys().hasOnly(['status', 'closedAt', 'closedBy']))
-        ||
-        // Resolve (academic) — the single VP works it with no claim step, so
-        // they resolve straight from 'open'.
-        (resource.data.queue == 'academic'
-          && isQueueWorker('academic')
-          && resource.data.status == 'open'
           && request.resource.data.status == 'resolved'
           && isNow(request.resource.data.closedAt)
           && request.resource.data.closedBy == request.auth.uid
