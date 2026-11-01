@@ -1,4 +1,5 @@
 import type { Profile } from "./auth";
+import { VOLUNTEER_ROLES } from "./constants";
 import { CALENDAR_API_KEY, CALENDARS } from "./calendarConfig";
 
 export interface ScheduleEvent {
@@ -15,23 +16,17 @@ const PLACEHOLDER = /^PASTE_/;
 // Its own key, so events cached by the JMUCC build never paint here.
 const CACHE_KEY = "nextgen.schedule";
 
-// The calendars a person sees: Global + their role's calendar + (if they have
-// a wave) that wave's calendar. Unfilled calendar IDs are dropped.
-const ROLE_CALENDAR: Record<string, keyof typeof CALENDARS> = {
-  Organizer: "organizers",
-  "Team Ambassador": "teamAmbassadors",
-  "Presentation Room Coordinator": "prcs",
-  "Tech Volunteer": "tech",
-  Floater: "floaters",
-  Runner: "runners",
-};
-
+// The calendars a person sees: Global + Organizers or the shared Volunteers
+// calendar + (if they have a wave) that wave's calendar — the reused JMUCC
+// Team A–C calendars stand in for Waves A–C.
 function calendarIdsFor(profile: Profile): string[] {
   const ids: string[] = [CALENDARS.global];
-  const role = ROLE_CALENDAR[profile.role];
-  if (role) ids.push(CALENDARS[role]);
+  if (profile.role === "Organizer") ids.push(CALENDARS.organizers);
+  else if (VOLUNTEER_ROLES.includes(profile.role as never)) {
+    ids.push(CALENDARS.volunteers);
+  }
   const wave =
-    profile.wave && CALENDARS[`wave${profile.wave}` as keyof typeof CALENDARS];
+    profile.wave && CALENDARS[`team${profile.wave}` as keyof typeof CALENDARS];
   if (wave) ids.push(wave);
 
   // Drop unfilled placeholders + dedupe.
