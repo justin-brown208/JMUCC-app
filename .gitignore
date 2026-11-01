@@ -25,3 +25,5 @@ service-account.json
 
 # OS
 .DS_Store
+.vercel
+.env*
