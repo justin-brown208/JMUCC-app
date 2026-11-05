@@ -6,7 +6,7 @@
 
 > **`nextgen` branch:** this copy describes the NextGen Logistics test build
 > (JHMA, Nov 6 2026) — volunteers only, **no `schools` collection**, teams are
-> waves A–C × team numbers 1–4 stored **on the person**, queues are `tech` +
+> waves A–B × team numbers 1–3 stored **on the person**, queues are `tech` +
 > `runner` only, and queue access can be granted by a `worksQueues` flag.
 
 ## Mental model
@@ -38,8 +38,8 @@ One document per person. **Document ID = the person's Firebase auth `uid`** (ass
 | `fullName` | string | e.g. "Jane Smith" |
 | `role` | string | one of 6: `Organizer`, `Presentation Room Coordinator`, `Team Ambassador`, `Tech Volunteer`, `Floater`, `Runner` (the last 5 are the volunteer roles) |
 | `pin` | string | 6 digits, **plaintext**, stored as a string so leading zeros survive |
-| `wave` | string \| null | `"A"`–`"C"`. Set for Team Ambassadors; null for everyone else (incl. PRCs, who serve every wave) |
-| `teamNumber` | number \| null | 1–4. A TA's team (`#3B` = 3 + B); a PRC's classroom, which hosts that team number from every wave; null for the teamless |
+| `wave` | string \| null | `"A"` or `"B"`. Set for Team Ambassadors; null for everyone else (incl. PRCs, who serve every wave) |
+| `teamNumber` | number \| null | 1–3. A TA's team (`#3B` = 3 + B); a PRC's classroom, which hosts that team number from every wave; null for the teamless |
 | `isAdmin` | boolean | the **only** source of admin access — not the role |
 | `worksQueues` | array\<string\> | extra request queues this person works on top of their role's own (e.g. a TA with `["runner"]`). Same flag-pattern as `isAdmin`; independent of role. Optional — absent = none |
 
@@ -47,7 +47,7 @@ One document per person. **Document ID = the person's Firebase auth `uid`** (ass
 
 **PIN is plaintext** (decision): simpler, and lets the OC read a PIN from the Firebase console to help someone who forgot theirs. Acceptable because the roster is never client-exposed.
 
-**Team lives on the person here** (unlike the JMUCC build's school lookup): NextGen's 12 team slots are fixed staffing assignments, not a ceremony mapping that gets published later, so there's nothing to fan out. Correct a person's `wave`/`teamNumber` in the console and the next send already uses it — targeting still resolves at send time, never from a token.
+**Team lives on the person here** (unlike the JMUCC build's school lookup): NextGen's 6 team slots are fixed staffing assignments, not a ceremony mapping that gets published later, so there's nothing to fan out. Correct a person's `wave`/`teamNumber` in the console and the next send already uses it — targeting still resolves at send time, never from a token.
 
 ---
 
@@ -217,8 +217,8 @@ resolves fresh at fire time, exactly like an immediate send.
 | `body` | string | the message text |
 | `silent` | boolean | quiet toggle |
 | `roles` | array\<string\> | recipient roles (the composer expands "All Volunteers") |
-| `waves` | array\<string\> | optional narrowing filter (`"A"`–`"C"`) |
-| `teamNumbers` | array\<number\> | optional narrowing filter (1–4) |
+| `waves` | array\<string\> | optional narrowing filter (`"A"`, `"B"`) |
+| `teamNumbers` | array\<number\> | optional narrowing filter (1–3) |
 | `sendAt` | timestamp | when to fire |
 | `status` | string | `"scheduled"` → `"sent"`, or `"canceled"` / `"failed"` (transient `"sending"` while the poller is mid-fire — the atomic claim) |
 | `createdBy` | string | admin uid who scheduled it |

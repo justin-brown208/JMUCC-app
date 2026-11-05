@@ -2,7 +2,7 @@
 // sync by hand (two runtimes, no shared package). The composer sends real role
 // values; "All Volunteers" is a UI shortcut that expands to VOLUNTEER_ROLES.
 //
-// NextGen branch: volunteers-only. Teams are waves A–C × team numbers 1–4,
+// NextGen branch: volunteers-only. Teams are waves A–B × team numbers 1–3,
 // stored on the person — no schools, delegates or coaches.
 
 export const ROLES = [
@@ -32,5 +32,5 @@ export const NOTIFICATION_TITLES = [
   "Reminder",
 ] as const;
 
-export const WAVES = ["A", "B", "C"] as const;
-export const TEAM_NUMBERS = [1, 2, 3, 4] as const;
+export const WAVES = ["A", "B"] as const;
+export const TEAM_NUMBERS = [1, 2, 3] as const;

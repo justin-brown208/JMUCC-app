@@ -24,7 +24,7 @@ rules_version = '2';
 // Collection: people           (NO client access — contains all PINs)
 //   Document ID: person's auth uid
 //   Fields: fullName string, role string, pin string(6), isAdmin bool,
-//           wave "A"|"B"|"C"|null, teamNumber 1-4|null,
+//           wave "A"|"B"|null, teamNumber 1-3|null,
 //           worksQueues list<string> (optional; extra queues worked)
 //   (NextGen branch: no schools collection — the team lives on the person.)
 //

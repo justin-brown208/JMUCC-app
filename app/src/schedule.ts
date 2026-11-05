@@ -18,7 +18,7 @@ const CACHE_KEY = "nextgen.schedule";
 
 // The calendars a person sees: Global + Organizers or the shared Volunteers
 // calendar + (if they have a wave) that wave's calendar — the reused JMUCC
-// Team A–C calendars stand in for Waves A–C.
+// Team A–B calendars stand in for Waves A–B.
 function calendarIdsFor(profile: Profile): string[] {
   const ids: string[] = [CALENDARS.global];
   if (profile.role === "Organizer") ids.push(CALENDARS.organizers);

@@ -2,8 +2,8 @@
  * Shared domain constants. Kept in one place so the send function, the
  * requests trigger, and validation all agree on the canonical values.
  *
- * NextGen branch: a volunteers-only event. Teams are 3 waves (A–C) × team
- * numbers 1–4, stored directly on the person (`wave`, `teamNumber`) — there
+ * NextGen branch: a volunteers-only event. Teams are 2 waves (A–B) × team
+ * numbers 1–3, stored directly on the person (`wave`, `teamNumber`) — there
  * are no schools and no delegates/coaches.
  */
 
@@ -37,8 +37,8 @@ export const NOTIFICATION_TITLES = [
   "Reminder",
 ] as const;
 
-export const WAVES = ["A", "B", "C"] as const;
-export const TEAM_NUMBERS = [1, 2, 3, 4] as const;
+export const WAVES = ["A", "B"] as const;
+export const TEAM_NUMBERS = [1, 2, 3] as const;
 
 // The request queues. Who works one: its role (below) OR the queue listed in
 // the person's `worksQueues` flag — so a Team Ambassador can also run errands.

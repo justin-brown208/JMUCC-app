@@ -190,13 +190,13 @@ export const validatePayload = (data: SendPayload): void => {
   if (data.waves !== undefined) {
     const ok = Array.isArray(data.waves) &&
       data.waves.every((w) => (WAVES as readonly string[]).includes(w));
-    if (!ok) throw bad("Waves must be A–C.");
+    if (!ok) throw bad("Waves must be A or B.");
   }
   if (data.teamNumbers !== undefined) {
     const ok = Array.isArray(data.teamNumbers) &&
       data.teamNumbers.every((n) =>
         (TEAM_NUMBERS as readonly number[]).includes(n));
-    if (!ok) throw bad("Team numbers must be 1–4.");
+    if (!ok) throw bad("Team numbers must be 1–3.");
   }
 };
 

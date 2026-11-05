@@ -15,8 +15,8 @@
 export const CALENDAR_API_KEY = "AIzaSyDdQTUtnuVfL28e5zT4aTLuwTBm1uNpggI";
 
 // NextGen reuses the JMUCC calendars: Global, Organizers, the shared Volunteers
-// calendar (all 5 volunteer roles), and Team A–C standing in for Waves A–C.
-// delegates / coaches / teamD go unused on this branch.
+// calendar (all 5 volunteer roles), and Team A–B standing in for Waves A–B.
+// delegates / coaches / teamC / teamD go unused on this branch.
 export const CALENDARS = {
   global: "c_56163710bbaa1ad403f0cd2d0d62fa181a058bf7a124bfa87545586583a3ffe8@group.calendar.google.com",
   delegates: "c_23305afc67456472945bec65f43f4293def6fdce9c7a421173c4ea70c5d871c5@group.calendar.google.com",
