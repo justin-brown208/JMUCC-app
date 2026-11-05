@@ -61,7 +61,9 @@ const LABELS: Record<TabId, string> = {
 
 // The visible tabs for this person, left→right.
 export function tabsFor(profile: Profile): TabId[] {
-  const tabs: TabId[] = ["home", "rules", "messages"];
+  // NextGen has no rulebook, so the Rules tab is hidden. Search itself is intact:
+  // add "rules" back here to bring it back.
+  const tabs: TabId[] = ["home", "messages"];
   if (submittableQueues(profile).length > 0 || workedQueues(profile).length > 0) {
     tabs.push("requests");
   }
