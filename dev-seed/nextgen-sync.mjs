@@ -4,11 +4,13 @@
 //
 // The non-destructive sibling of nextgen-seed.mjs, for roster corrections once
 // people may be using the app: it never touches messages, device registrations
-// or tickets, and everyone keeps the PIN already in Firestore. Removes `ng-`
-// people no longer on the roster. Rewrites nextgen-pins.csv (not in git).
+// or tickets, and everyone keeps the PIN already in Firestore. Newcomers get a
+// fresh random PIN unique across the whole collection. Removes `ng-` people no
+// longer on the roster. Rewrites nextgen-pins.csv (not in git).
 // ===========================================================================
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { randomInt } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { initializeApp, cert } from "firebase-admin/app";
@@ -32,11 +34,21 @@ async function run() {
   const live = new Map(snap.docs.map((d) => [d.id, d.data()]));
   const batch = db.batch();
   const rows = ["pin,id,fullName,role,team,flags"];
+  const usedPins = new Set([...live.values()].map((p) => p.pin));
 
   for (const { id, ...want } of people) {
-    const have = live.get(id);
-    // A newcomer would need a generated PIN — that's the seed's job, not this.
-    if (!have?.pin) throw new Error(`${id} has no live PIN; add them deliberately.`);
+    let have = live.get(id);
+    if (!have) {
+      let pin;
+      do pin = String(randomInt(100000, 1000000)); while (usedPins.has(pin));
+      usedPins.add(pin);
+      have = { pin };
+      console.log(`  add    ${id} (${want.role})`);
+      batch.set(db.collection("people").doc(id), { ...want, pin });
+      rows.push([pin, id, want.fullName, want.role, team(want), ""].join(","));
+      continue;
+    }
+    if (!have.pin) throw new Error(`${id} has no live PIN.`);
     const changed = Object.keys(want).filter(
       (k) => JSON.stringify(have[k]) !== JSON.stringify(want[k])
     );
