@@ -90,6 +90,58 @@ export const cancelScheduledNotification = onCall(
     return {ok: true};
   });
 
+// Nudge a pending send earlier or later (the Scheduled tab's −15…+15 buttons).
+// Takes a DELTA, not a new absolute time, and applies it to the stored sendAt
+// inside a transaction — so two quick taps compose (+5, +5 = +10) instead of
+// the second overwriting the first from a stale client copy.
+const MAX_SHIFT_MINUTES = 24 * 60;
+
+export const rescheduleNotification = onCall(
+  async (request): Promise<{sendAtMillis: number}> => {
+    const db = getFirestore();
+    await assertAdmin(db, request.auth?.uid);
+
+    const id = request.data?.id;
+    const delta = request.data?.deltaMinutes;
+    if (typeof id !== "string" || id === "") {
+      throw new HttpsError("invalid-argument", "id is required.");
+    }
+    if (
+      !Number.isInteger(delta) || delta === 0 ||
+      Math.abs(delta) > MAX_SHIFT_MINUTES
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "deltaMinutes must be a non-zero whole number of minutes."
+      );
+    }
+
+    const ref = db.collection("scheduledNotifications").doc(id);
+    return db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) {
+        throw new HttpsError("not-found", "That scheduled send is gone.");
+      }
+      const data = snap.data() ?? {};
+      if (data.status !== "scheduled") {
+        throw new HttpsError(
+          "failed-precondition",
+          "That send already fired or was canceled."
+        );
+      }
+      const current = (data.sendAt as Timestamp).toMillis();
+      const next = current + delta * 60_000;
+      if (next <= Date.now()) {
+        throw new HttpsError(
+          "failed-precondition",
+          "That would put it in the past."
+        );
+      }
+      tx.update(ref, {sendAt: Timestamp.fromMillis(next)});
+      return {sendAtMillis: next};
+    });
+  });
+
 // Fire the due scheduled sends. Runs every minute; a no-op whenever the due
 // query is empty (the normal case).
 export const runScheduledSends = onSchedule("every 1 minutes", async () => {

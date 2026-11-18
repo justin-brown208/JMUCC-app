@@ -892,6 +892,36 @@ body::before {
   color: var(--accent);
 }
 
+/* Push/pull buttons under a pending send: −15 … +15 min in one wrapping row. */
+.sched-shift {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.sched-shift .btn-small {
+  flex: 1 0 auto;
+  min-width: 44px;
+  font-size: 13px;
+}
+.sched-shift .btn-small:disabled {
+  opacity: 0.4;
+}
+/* Settled groups (Canceled) fold away so the live ones stay on top. */
+.sched-group > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.sched-group > summary::-webkit-details-marker {
+  display: none;
+}
+.sched-group > summary .label::before {
+  content: "▸ ";
+}
+.sched-group[open] > summary .label::before {
+  content: "▾ ";
+}
+
 /* --- Admin area nav (Compose / Tracking tabs) --- */
 .admin-nav {
   width: 100%;

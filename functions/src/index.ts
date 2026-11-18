@@ -28,6 +28,7 @@ export {getMessageTracking} from "./tracking.js";
 export {
   scheduleNotification,
   cancelScheduledNotification,
+  rescheduleNotification,
   runScheduledSends,
 } from "./scheduling.js";
 export {onRequestWrite} from "./requests.js";

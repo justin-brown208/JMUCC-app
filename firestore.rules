@@ -294,7 +294,7 @@ service cloud.firestore {
     // -----------------------------------------------------------
     // scheduledNotifications — pending future sends. Admins read (the
     // Scheduled tab lists them). All writes go through callables
-    // (scheduleNotification / cancelScheduledNotification) + the scheduler,
+    // (schedule/cancel/rescheduleNotification) + the scheduler,
     // which use the Admin SDK, so no client writes.
     // -----------------------------------------------------------
     match /scheduledNotifications/{id} {

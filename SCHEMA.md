@@ -222,7 +222,7 @@ resolves fresh at fire time, exactly like an immediate send.
 | `divisions` | array\<number\> | optional narrowing filter |
 | `teamLetters` | array\<string\> | optional narrowing filter |
 | `school` | string \| null | optional single-school filter |
-| `sendAt` | timestamp | when to fire |
+| `sendAt` | timestamp | when to fire. Mutable while `scheduled` — the `rescheduleNotification` callable shifts it by a minute delta (transactional, never into the past) |
 | `status` | string | `"scheduled"` → `"sent"`, or `"canceled"` / `"failed"` (transient `"sending"` while the poller is mid-fire — the atomic claim) |
 | `createdBy` | string | admin uid who scheduled it |
 | `createdAt` | timestamp | |
@@ -239,7 +239,8 @@ runs the **same** targeting + FCM path as an immediate send (writing a real
 **Access: admins may read** (the Scheduled tab lists them). All writes go through
 Functions — **create** via the `scheduleNotification` callable (admin-gated,
 validates the payload and that `sendAt` is in the future), **cancel** via the
-`cancelScheduledNotification` callable (admin-gated, `scheduled → canceled` only).
+`cancelScheduledNotification` callable (admin-gated, `scheduled → canceled` only),
+**shift** via `rescheduleNotification` (admin-gated, `scheduled` only, moves `sendAt`).
 No client writes.
 
 ---

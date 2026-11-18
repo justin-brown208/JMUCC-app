@@ -50,6 +50,21 @@ export async function cancelScheduled(id: string): Promise<void> {
   await call({ id });
 }
 
+// Shift a pending send by a whole number of minutes (negative = earlier). The
+// server applies the delta to its own stored time, so rapid taps compose.
+// Resolves to the new send time.
+export async function rescheduleScheduled(
+  id: string,
+  deltaMinutes: number
+): Promise<Date> {
+  const call = httpsCallable<
+    { id: string; deltaMinutes: number },
+    { sendAtMillis: number }
+  >(functions, "rescheduleNotification");
+  const { data } = await call({ id, deltaMinutes });
+  return new Date(data.sendAtMillis);
+}
+
 // The Scheduled-tab list. Admins may read scheduledNotifications (per rules).
 export async function loadScheduled(): Promise<ScheduledItem[]> {
   const snap = await getDocs(

@@ -132,15 +132,15 @@ Entered via [Admin] on Home. The area has its own internal navigation (tabs: **C
 - **Scheduled sends resolve their audience at fire time**, not at schedule time — a school moved between divisions before it fires is still targeted correctly. Confirmed via the same path as an immediate send.
 
 ### 7a. Scheduled *(management list)*
-**Purpose:** See queued future sends and cancel any still pending. Scheduling happens in Compose; this tab only lists/cancels.
+**Purpose:** See queued future sends, nudge their timing, and cancel any still pending. Scheduling happens in Compose.
 
 **Shows**
-- List of scheduled sends (newest send-time first), each with: title, body, send time, targeted roles (+ "(filtered)" / "silent" tags), and a **status** pill — Scheduled / Sending / Sent / Canceled / Failed (failed shows the reason).
-- [Cancel] on any **Scheduled** item.
+- Sends **grouped by status**: **Upcoming** (Scheduled/Sending, soonest first — the next to fire is on top), **Failed** (only when any exist), **Sent** (newest first), **Canceled** (folded away). Each row: title, body, send time, targeted roles (+ "(filtered)" / "silent" tags), and a **status** pill (failed shows the reason).
+- On any **Scheduled** item: shift buttons **−15 / −5 / −1 / +1 / +5 / +15** (minutes) and [Cancel].
 
 **Behavior**
 - A background job fires due sends every minute; a fired send also appears in message history + tracking like any other.
-- Cancel only works while still **Scheduled** (if it already fired, you're told).
+- Cancel and shift only work while still **Scheduled** (if it already fired, you're told). Shifts apply to the server's stored time, so repeated taps add up (+5, +5 = +10); a shift that would land in the past is refused.
 
 ### 8. Message Tracking
 **Purpose:** Per-notification breakdown of who has opened the app since it was sent.
