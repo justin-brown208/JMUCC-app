@@ -61,7 +61,7 @@ Without it a swapped `division`/`teamLetter` field would pass every test below.
 Fitting both parts into 10 seats forced four decisions worth knowing, because
 each one is load-bearing somewhere below:
 
-- **Justin carries both flags.** `isAdmin` and `managesAcademicQueue` are
+- **Justin carries both flags.** `isAdmin` and `worksQueues: ["academic"]` are
   independent of role, so the one Organizer sends every notification *and* works
   the academic queue. That freed a seat, and it leaves an Organizer available as
   the "Organizer is not a volunteer role" control in T3.
@@ -218,7 +218,7 @@ step, straight `open → resolved` — and gets its own block (Q10–Q12).
 | Meriem | Tech Volunteer | **tech** | all 3 |
 | Tara | Tech Volunteer | **tech** | all 3 |
 | Tyson | Runner | **runner** | all 3 |
-| Justin | Organizer · `managesAcademicQueue` | **academic** | **none** |
+| Justin | Organizer · `worksQueues: [academic]` | **academic** | **none** |
 | Laetitia | Team Ambassador | — | all 3 |
 | Lina | General Volunteer | — | all 3 |
 | Shehroz | Presentation Room Coordinator | — | all 3 |

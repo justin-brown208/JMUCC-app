@@ -43,7 +43,7 @@
 **Actions**
 - [Previous Messages] → §3
 - [Competition Rules] → §4
-- [My Queue] → §10 *(only visible to queue workers — Tech Volunteers, Runners, and the VP with `managesAcademicQueue`)*
+- [My Queue] → §10 *(only visible to queue workers — Tech Volunteers, Runners, and anyone carrying the queue in `worksQueues`, e.g. the VP on academic)*
 - [Admin] → §7 *(only visible when `isAdmin`)*
 
 **Not shown:** team/division/school info — users already know their own.
@@ -172,7 +172,7 @@ workers claim and resolve them. Entered from Home. See `SCHEMA.md` → `requests
 - The queue's worker(s) get a push.
 
 ### 10. My Queue
-**Purpose:** A queue worker sees and works their queue. *(Reachable only by Tech Volunteers, Runners, and the VP with `managesAcademicQueue`; each sees only the queue they work.)*
+**Purpose:** A queue worker sees and works their queue. *(Reachable only by Tech Volunteers, Runners, and anyone carrying the queue in `worksQueues`; each sees only the queue(s) they work — someone on two queues gets one panel per queue.)*
 
 **Shows**
 - Title: the queue name

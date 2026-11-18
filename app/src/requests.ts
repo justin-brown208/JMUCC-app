@@ -73,12 +73,18 @@ export function submittableQueues(profile: Profile): QueueId[] {
   return [];
 }
 
-// Which single queue this person works, if any.
-export function workedQueue(profile: Profile): QueueId | null {
-  if (profile.role === "Tech Volunteer") return "tech";
-  if (profile.role === "Runner") return "runner";
-  if (profile.managesAcademicQueue) return "academic";
-  return null;
+const QUEUE_ROLE: Partial<Record<QueueId, string>> = {
+  tech: "Tech Volunteer",
+  runner: "Runner",
+};
+
+// The queues this person works: their role's own, plus any listed in their
+// worksQueues flag (mirrors isQueueWorker in the rules). Academic is flag-only.
+// Usually zero or one.
+export function workedQueues(profile: Profile): QueueId[] {
+  return (["academic", "tech", "runner"] as QueueId[]).filter(
+    (q) => profile.role === QUEUE_ROLE[q] || profile.worksQueues.includes(q)
+  );
 }
 
 export const isActive = (t: RequestTicket): boolean =>
@@ -483,10 +489,11 @@ export function subscribeRequestsBadge(
   profile: Profile,
   onCount: (count: number) => void
 ): Unsubscribe {
-  const worked = workedQueue(profile);
-  let queueCount = 0;
+  const worked = workedQueues(profile);
+  const queueCounts = new Map<QueueId, number>();
   let mineCount = 0;
-  const emit = () => onCount(queueCount + mineCount);
+  const emit = () =>
+    onCount([...queueCounts.values()].reduce((a, b) => a + b, 0) + mineCount);
 
   let mine: RequestTicket[] = [];
   const recount = () => {
@@ -502,16 +509,16 @@ export function subscribeRequestsBadge(
   // next snapshot (dismissal is local, so no snapshot is coming).
   dismissWatchers.add(recount);
 
-  const stopQueue = worked ?
-    subscribeQueue(worked, (tickets) => {
-      queueCount = tickets.filter((t) => t.status === "open").length;
+  const stopQueues = worked.map((q) =>
+    subscribeQueue(q, (tickets) => {
+      queueCounts.set(q, tickets.filter((t) => t.status === "open").length);
       emit();
-    }) :
-    null;
+    })
+  );
 
   return () => {
     dismissWatchers.delete(recount);
     stopMine();
-    stopQueue?.();
+    stopQueues.forEach((stop) => stop());
   };
 }

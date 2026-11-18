@@ -112,7 +112,7 @@ async function run() {
     const who = (p.tester ?? "—").padEnd(9);
     const flags =
       (p.isAdmin ? " [ADMIN]" : "") +
-      (p.managesAcademicQueue ? " [ACADEMIC QUEUE]" : "") +
+      (p.worksQueues?.length ? ` [WORKS ${p.worksQueues.join("+").toUpperCase()}]` : "") +
       (p.tester ? "" : " (unmanned)");
     const team = p.school ? `  @ ${schoolName(p.school)}` : "";
     console.log(`    ${p.pin}  ${who}  ${p.fullName.padEnd(16)} ${p.role}${team}${flags}`);

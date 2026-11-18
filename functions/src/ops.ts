@@ -155,7 +155,7 @@ interface RosterPerson {
   role: string;
   school: string | null;
   isAdmin: boolean;
-  managesAcademicQueue: boolean;
+  worksQueues: string[];
   lastOpenedAt: number | null; // ms epoch; null = never opened Home
 }
 
@@ -196,7 +196,7 @@ export const getOpsRoster = onCall(
         role: String(p.role ?? ""),
         school: p.school ?? null,
         isAdmin: p.isAdmin === true,
-        managesAcademicQueue: p.managesAcademicQueue === true,
+        worksQueues: Array.isArray(p.worksQueues) ? p.worksQueues : [],
         lastOpenedAt: opened.get(doc.id) ?? null,
       };
     });

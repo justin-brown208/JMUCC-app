@@ -120,9 +120,12 @@ export function cachedSchedule(): ScheduleEvent[] | null {
  * the next visit (stale-while-revalidate).
  */
 export async function loadSchedule(profile: Profile): Promise<ScheduleEvent[]> {
-  if (!CALENDAR_API_KEY || PLACEHOLDER.test(CALENDAR_API_KEY)) return [];
   const ids = calendarIdsFor(profile);
-  if (ids.length === 0) return [];
+  if (!CALENDAR_API_KEY || PLACEHOLDER.test(CALENDAR_API_KEY) || ids.length === 0) {
+    // Nothing configured: clear the cache too, or the last result paints forever.
+    localStorage.removeItem(CACHE_KEY);
+    return [];
+  }
 
   const timeMin = new Date().toISOString();
   const perCalendar = await Promise.all(

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
-import { getCachedProfile, type Profile } from "./auth";
+import { getCachedProfile, logout, type Profile } from "./auth";
 import { subscribeRequestsBadge, type QueueId } from "./requests";
 import { Registration } from "./screens/Registration";
 import { Home } from "./screens/Home";
@@ -79,7 +79,11 @@ function App() {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
-      setProfile(user ? getCachedProfile() : null);
+      const cached = user ? getCachedProfile() : null;
+      // A session with no usable profile (stale shape from an older build)
+      // can't be gated correctly — end it so the PIN screen is clean.
+      if (user && !cached) void logout();
+      setProfile(cached);
       setView("home"); // always land on Home across sign-in/out
     });
   }, []);

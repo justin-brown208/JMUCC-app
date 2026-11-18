@@ -9,7 +9,8 @@ export interface Profile {
   fullName: string;
   role: string;
   isAdmin: boolean;
-  managesAcademicQueue: boolean;
+  /** Queues worked on top of the role's own — the only way into academic. */
+  worksQueues: string[];
   school: string | null;
   division: number | null;
   teamLetter: string | null;
@@ -26,10 +27,26 @@ export function getCachedProfile(): Profile | null {
   const raw = localStorage.getItem(PROFILE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as Profile;
+    const p = JSON.parse(raw) as Profile;
+    return isCurrentProfile(p) ? p : null;
   } catch {
     return null;
   }
+}
+
+// A profile cached by an older build (or the NextGen branch, which shared this
+// origin) may lack fields the gating reads. Treat it as signed out so the person
+// re-enters their PIN and gets a fresh one, rather than half-working.
+function isCurrentProfile(p: Partial<Profile> | null): p is Profile {
+  return (
+    !!p &&
+    typeof p.fullName === "string" &&
+    typeof p.role === "string" &&
+    typeof p.isAdmin === "boolean" &&
+    Array.isArray(p.worksQueues) &&
+    "school" in p &&
+    "teamLetter" in p
+  );
 }
 
 /**

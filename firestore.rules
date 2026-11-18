@@ -87,7 +87,7 @@ service cloud.firestore {
 
     // The caller's own people doc data (role, flags, name). Same get()-on-people
     // trick as isAdmin() — reads a doc the client itself cannot read — used to
-    // gate request submit/work by role + the managesAcademicQueue flag.
+    // gate request submit/work by role + the worksQueues flag.
     function me() {
       return get(/databases/$(database)/documents/people/$(request.auth.uid)).data;
     }
@@ -100,12 +100,14 @@ service cloud.firestore {
         || (me().role == 'Coach' && queue == 'academic');
     }
 
-    // Does the caller WORK this queue? tech → Tech Volunteer; runner → Runner;
-    // academic → the managesAcademicQueue flag (absent treated as false).
+    // Does the caller WORK this queue? Its role (tech → Tech Volunteer, runner
+    // → Runner) OR the queue listed in their worksQueues flag (absent = none).
+    // Academic has no role, so it's flag-only (the VP Academics); the flag also
+    // lets anyone work a second queue, e.g. a Team Ambassador on runner.
     function isQueueWorker(queue) {
       return (queue == 'tech' && me().role == 'Tech Volunteer')
         || (queue == 'runner' && me().role == 'Runner')
-        || (queue == 'academic' && me().get('managesAcademicQueue', false) == true);
+        || queue in me().get('worksQueues', []);
     }
 
     // -----------------------------------------------------------

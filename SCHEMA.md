@@ -36,7 +36,7 @@ One document per person. **Document ID = the person's Firebase auth `uid`** (ass
 | `pin` | string | 6 digits, **plaintext**, stored as a string so leading zeros survive |
 | `school` | string \| null | the `schools` document ID this person belongs to; null for organizers and non-team volunteers |
 | `isAdmin` | boolean | the **only** source of admin access — not the role |
-| `managesAcademicQueue` | boolean | grants access to the Academic request queue (the one VP Academics). Same flag-pattern as `isAdmin`; independent of role. Optional — absent/false for everyone else |
+| `worksQueues` | string[] | queues this person works **on top of** their role's own (`"academic"`, `"tech"`, `"runner"`). Academic has no role, so this is the only way into it (the VP Academics carries `["academic"]`); it also lets anyone work a second queue, e.g. a Team Ambassador on `runner`. Same flag-pattern as `isAdmin`; independent of role. Optional — absent = `[]` |
 
 **Access: fully locked — no client read, no client write, ever.** If the client could read this, it could read every PIN. Login happens in a Function: it reads the roster with the Admin SDK, matches the submitted PIN, and returns a token plus that person's own name/role/etc. The client never sees the roster.
 
@@ -139,9 +139,9 @@ optional short note plus a phone number to reach the requester.
 **Queues & who works them** (config is hardcoded — static like the school list):
 | Queue | Worked by | Submitters |
 |---|---|---|
-| `academic` | the person with `managesAcademicQueue == true` (one VP) | Coaches **and** all volunteer roles |
-| `tech` | anyone with role *Tech Volunteer* | volunteer roles only |
-| `runner` | anyone with role *Runner* | volunteer roles only |
+| `academic` | anyone with `"academic"` in `worksQueues` (the VP) | Coaches **and** all volunteer roles |
+| `tech` | role *Tech Volunteer*, or `"tech"` in `worksQueues` | volunteer roles only |
+| `runner` | role *Runner*, or `"runner"` in `worksQueues` | volunteer roles only |
 
 ("Volunteer roles" = the 5 volunteer values. Delegates and Organizers don't submit. Coaches submit to `academic` only.)
 
@@ -200,7 +200,7 @@ ticket's `position: null` happen in one transaction.
 
 **Access:**
 - **Create:** a requester may create a ticket where `requesterId == uid`, `status == "open"`, manager/position/timestamp fields empty, **and** their role is allowed to submit to that `queue` (checked via `get()` on their `people` doc: Coach → `academic` only; volunteer roles → any). `requesterName` must match their roster name.
-- **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, `managesAcademicQueue` for academic — resolved via `get()`); **admins** may read all (the /ops queue-health panel — `status in [open, claimed]` ordered by `createdAt`, backed by a `{status, createdAt}` index).
+- **Read:** the requester may read their **own** tickets; a **manager** may read tickets in the queue they work (role match for tech/runner, or the queue in their `worksQueues` — resolved via `get()`; a person may work several queues); **admins** may read all (the /ops queue-health panel — `status in [open, claimed]` ordered by `createdAt`, backed by a `{status, createdAt}` index).
 - **Cancel:** the requester may update **only** their own still-open/claimed ticket to `status: "canceled"` (+ `closedAt`), and may additionally **null out** `claimedBy`/`claimedByName`/`claimedAt` so a withdrawn ticket carries no half-live claim. The rule permits those three keys only when the new value is `null`, so cancel can never be used to forge or steal a claim. No other fields.
 - **Claim/release/resolve:** a manager of the ticket's queue may transition `open → claimed` (setting `claimedBy == uid` — and **only** that; `claimedByName` is not in the allowed key set, because the trigger writes it — only when currently `open` — this makes claiming atomic so two workers can't grab the same ticket), `claimed → resolved` (setting `closedBy == uid`; `closedByName` is likewise trigger-written), and **release** `claimed → open` (clearing `claimedBy`/`claimedByName`/`claimedAt` so the ticket returns to the pool). Any manager of the queue may release — not only the one holding it — so an abandoned claim can be freed.
 - **Resolve (academic):** the `academic` queue has a single worker (the VP), so there's no claim step — the VP may transition `open → resolved` directly (a dedicated rule branch, `queue == "academic"` only). Tech/runner still go through `claimed → resolved`.

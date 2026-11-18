@@ -19,7 +19,7 @@
 //
 // The tight part is fitting both parts' needs into 10 seats. What forced the
 // shape:
-//   - Both flags sit on the sender. isAdmin and managesAcademicQueue are
+//   - Both flags sit on the sender. isAdmin and worksQueues:["academic"] are
 //     independent of role (SCHEMA.md), so the one Organizer carries both:
 //     he sends every notification AND works the academic queue. That frees a
 //     seat and still leaves an Organizer as the "not a volunteer role" control.
@@ -59,15 +59,15 @@ export const schools = [
 
 // --- people (collection: people) -------------------------------------------
 // Fields per SCHEMA.md: fullName, role, pin (6-digit string), school (id|null),
-// isAdmin (bool), managesAcademicQueue (bool, optional). Document ID doubles as
+// isAdmin (bool), worksQueues (string[], optional — queues worked beyond the role's own; the only way into academic). Document ID doubles as
 // the person's future auth uid.
 export const people = [
   // The sender, and the academic queue's one worker. Both flags on one person,
   // neither implied by the role (SCHEMA.md): isAdmin opens the Admin panel,
-  // managesAcademicQueue opens the Rules Questions queue. As an Organizer he
+  // worksQueues:["academic"] opens the Rules Questions queue. As an Organizer he
   // may submit to nothing — the only seat where work-rights and submit-rights
   // disagree — and he is the control proving Organizer is NOT a volunteer role.
-  { id: "test-organizer",       tester: "Justin",   fullName: "Olivia Organizer", role: "Organizer", pin: "100001", school: null, isAdmin: true, managesAcademicQueue: true },
+  { id: "test-organizer",       tester: "Justin",   fullName: "Olivia Organizer", role: "Organizer", pin: "100001", school: null, isAdmin: true, worksQueues: ["academic"] },
 
   // Delegates — two schools, two divisions, two letters. Cannot submit to any
   // queue and must not see a Requests tab at all.

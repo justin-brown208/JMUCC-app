@@ -1,5 +1,5 @@
 /**
- * Shared domain constants. Kept in one place so the send function, the (future)
+ * Shared domain constants. Kept in one place so the send function, the
  * requests trigger, and validation all agree on the canonical values.
  */
 
@@ -36,3 +36,25 @@ export const NOTIFICATION_TITLES = [
 ] as const;
 
 export const TEAM_LETTERS = ["A", "B", "C", "D"] as const;
+
+// The request queues. Who works one: its role (below) OR the queue listed in
+// the person's `worksQueues` flag. Academic has no role — it's flag-only (the
+// VP Academics) — and the flag also lets anyone work a second queue.
+export const QUEUES = ["academic", "tech", "runner"] as const;
+export const QUEUE_ROLE: Record<string, string> = {
+  tech: "Tech Volunteer",
+  runner: "Runner",
+};
+
+/**
+ * Does this person work the queue — by role or by the worksQueues flag?
+ * @param {object} person A people doc (role, optional worksQueues).
+ * @param {string} queue The queue id.
+ * @return {boolean} Whether they may work it.
+ */
+export const worksQueue = (
+  person: {role?: unknown; worksQueues?: unknown},
+  queue: string
+): boolean =>
+  person.role === QUEUE_ROLE[queue] ||
+  (Array.isArray(person.worksQueues) && person.worksQueues.includes(queue));

@@ -55,9 +55,9 @@ const RECENT = 60 * MIN; // "in the last hour" for error/failure alerts
 const SEND_OVERDUE = 3 * MIN; // scheduled send past due and still pending
 
 const QUEUES = [
-  { id: "academic", label: "Academic (rules)", works: (p: RosterPerson) => p.managesAcademicQueue },
-  { id: "tech", label: "Tech", works: (p: RosterPerson) => p.role === "Tech Volunteer" },
-  { id: "runner", label: "Runner", works: (p: RosterPerson) => p.role === "Runner" },
+  { id: "academic", label: "Academic (rules)", works: (p: RosterPerson) => p.worksQueues.includes("academic") },
+  { id: "tech", label: "Tech", works: (p: RosterPerson) => p.role === "Tech Volunteer" || p.worksQueues.includes("tech") },
+  { id: "runner", label: "Runner", works: (p: RosterPerson) => p.role === "Runner" || p.worksQueues.includes("runner") },
 ];
 
 // --- formatting -------------------------------------------------------------

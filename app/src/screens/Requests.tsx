@@ -4,7 +4,7 @@ import { QueuePanel } from "../components/QueuePanel";
 import { PushStatusBanner } from "../components/PushStatusBanner";
 import {
   submittableQueues,
-  workedQueue,
+  workedQueues,
   QUEUE_META,
   type QueueId,
 } from "../requests";
@@ -25,14 +25,20 @@ export function Requests({
   onOpenSubmit: (queue: QueueId) => void;
 }) {
   const canSubmit = submittableQueues(profile);
-  const worksQueue = workedQueue(profile);
+  const worked = workedQueues(profile);
 
-  if (worksQueue) {
+  if (worked.length > 0) {
     return (
       <div className="screen">
-        <h1 className="title">{QUEUE_META[worksQueue].workerTitle}</h1>
+        <h1 className="title">{QUEUE_META[worked[0]].workerTitle}</h1>
         <PushStatusBanner worker />
-        <QueuePanel queue={worksQueue} />
+        <QueuePanel queue={worked[0]} />
+        {worked.slice(1).map((q) => (
+          <div key={q} className="field">
+            <h2 className="title">{QUEUE_META[q].workerTitle}</h2>
+            <QueuePanel queue={q} />
+          </div>
+        ))}
 
         <MyRequests />
 

@@ -32,7 +32,7 @@ export interface RosterPerson {
   role: string;
   school: string | null;
   isAdmin: boolean;
-  managesAcademicQueue: boolean;
+  worksQueues: string[];
   lastOpenedAt: number | null;
 }
 

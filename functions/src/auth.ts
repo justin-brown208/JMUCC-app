@@ -25,7 +25,7 @@ interface AuthResult {
     fullName: string;
     role: string;
     isAdmin: boolean;
-    managesAcademicQueue: boolean;
+    worksQueues: string[];
     school: string | null;
     division: number | null;
     teamLetter: string | null;
@@ -85,7 +85,9 @@ export const authenticateWithPin = onCall(
         fullName: person.fullName,
         role: person.role,
         isAdmin: person.isAdmin === true,
-        managesAcademicQueue: person.managesAcademicQueue === true,
+        worksQueues: Array.isArray(person.worksQueues) ?
+          person.worksQueues :
+          [],
         school: person.school ?? null,
         division,
         teamLetter,
