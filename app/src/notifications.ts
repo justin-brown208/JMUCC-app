@@ -23,6 +23,9 @@ export interface SendResult {
 export interface SchoolOption {
   id: string;
   name: string;
+  /** The ceremony mapping — null until the OC publishes it. */
+  division: number | null;
+  teamLetter: string | null;
 }
 
 // Compose the send. The heavy lifting (team resolution, filtering, FCM fan-out)
@@ -43,6 +46,11 @@ export async function sendNotification(
 export async function loadSchools(): Promise<SchoolOption[]> {
   const snap = await getDocs(collection(db, "schools"));
   return snap.docs
-    .map((d) => ({ id: d.id, name: (d.data().name as string) ?? d.id }))
+    .map((d) => ({
+      id: d.id,
+      name: (d.data().name as string) ?? d.id,
+      division: (d.data().division as number | null) ?? null,
+      teamLetter: (d.data().teamLetter as string | null) ?? null,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

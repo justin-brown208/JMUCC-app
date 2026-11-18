@@ -33,3 +33,7 @@ export const NOTIFICATION_TITLES = [
 
 export const DIVISIONS = [1, 2, 3, 4, 5, 6] as const;
 export const TEAM_LETTERS = ["A", "B", "C", "D"] as const;
+
+// Roles that carry a `school`, and so a team (division + letter) through it.
+// Everyone else is teamless, which any team-based send filter excludes.
+export const TEAM_ROLES = ["Delegate", "Coach", "Team Ambassador"] as const;

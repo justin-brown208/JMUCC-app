@@ -7,7 +7,8 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { functions, db } from "./firebase";
-import type { SendPayload } from "./notifications";
+import type { SendPayload, SchoolOption } from "./notifications";
+import { TEAM_ROLES } from "./constants";
 
 export type ScheduleStatus =
   | "scheduled"
@@ -87,4 +88,43 @@ export async function loadScheduled(): Promise<ScheduledItem[]> {
       error: (x.error as string | null) ?? null,
     };
   });
+}
+
+// --- "Viewing as" (Admin › Scheduled) ---------------------------------------
+// Would a send reach a stand-in recipient (a role, plus a team letter for team
+// roles, or "" for any team)? Mirrors performSend's filters: role must match;
+// division / letter / school filters each narrow, and exclude the teamless.
+// Returns null for a miss, else the tags naming what the reach depends on — an
+// empty list means everyone in the group gets it.
+
+export function reachTags(
+  item: ScheduledItem,
+  role: string,
+  letter: string,
+  schools: SchoolOption[]
+): string[] | null {
+  if (!item.roles.includes(role)) return null;
+  const filtered =
+    item.divisions.length > 0 || item.teamLetters.length > 0 || item.school !== null;
+  if (!filtered) return [];
+  if (!TEAM_ROLES.includes(role as never)) return null; // teamless never match
+
+  const tags: string[] = [];
+  if (item.teamLetters.length > 0) {
+    if (letter) {
+      if (!item.teamLetters.includes(letter)) return null;
+    } else {
+      tags.push(`only Team ${item.teamLetters.join("/")}`);
+    }
+  }
+  if (item.divisions.length > 0) {
+    tags.push(`only Div ${item.divisions.join(", ")}`);
+  }
+  if (item.school !== null) {
+    const s = schools.find((x) => x.id === item.school);
+    // A school mapped to another letter can't contain this letter's team.
+    if (letter && s?.teamLetter && s.teamLetter !== letter) return null;
+    tags.push(`only ${s?.name ?? "one school"}`);
+  }
+  return tags;
 }

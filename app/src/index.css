@@ -921,6 +921,10 @@ body::before {
 .sched-shift .btn-small:disabled {
   opacity: 0.4;
 }
+/* Viewing-as tag: this send reaches only part of the chosen group. */
+.sched-reach {
+  color: var(--accent);
+}
 /* Settled groups (Canceled) fold away so the live ones stay on top. */
 .sched-group > summary {
   cursor: pointer;

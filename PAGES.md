@@ -138,6 +138,7 @@ Entered via [Admin] on Home. The area has its own internal navigation (tabs: **C
 **Shows**
 - Sends **grouped by status**: **Upcoming** (Scheduled/Sending, soonest first — the next to fire is on top), **Failed** (only when any exist), **Sent** (newest first), **Canceled** (folded away). Each row: title, body, send time, targeted roles (+ "(filtered)" / "silent" tags), and a **status** pill (failed shows the reason).
 - On any **Scheduled** item: shift buttons **−15 / −5 / −1 / +1 / +5 / +15** (minutes) and [Cancel].
+- **Viewing as** picker at the top: a role (any of the 8), plus an optional team letter for team roles (Delegate / Coach / Team Ambassador; default *Any team*). When set, the list shows **only the upcoming sends that group would receive** ("Upcoming for Team Ambassador · Team A · 3 of 7"); everything else is hidden. A send that reaches only part of the group stays listed with a gold tag — *Reaches only Div 2*, *only Alpha University*, or *only Team A/B* when the letter is Any. Same matching as the real send (team filters exclude teamless roles; a one-school send is ruled out when that school's letter differs). Preview of the current mapping — targeting still resolves at fire time.
 
 **Behavior**
 - A background job fires due sends every minute; a fired send also appears in message history + tracking like any other.
