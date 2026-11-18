@@ -209,10 +209,13 @@ workers claim and resolve them. Entered from Home. See `SCHEMA.md` → `requests
 - **Tiles** — devices registered (seen in 1h / 24h), people reachable by push, search count + total/avg cost + cache-hit %, push delivered/targeted + failed, error/warning totals, scheduler status.
 - **Queue health** — per queue: open, claimed, oldest open, workers, workers with push; then every active ticket with wait time and holder.
 - **Scheduled sends** — pending, soonest first.
+- **Queue workers** — everyone who works a queue (zeros included): tickets holding now, claimed, resolved, and average request→resolve time. Derived from the latest 500 tickets; a claim that was later released isn't counted (the ticket only keeps its latest claim), and academic work shows as Resolved only (no claim step).
+- **Notifications sent** — latest 100: when, title (+ silent), recipient count, body. Per-person opens stay on the phone's Tracking tab.
+- **Ticket history** — latest 500 tickets in any state, filterable by queue: requested, requester, status, who claimed and when, who closed it (or "canceled") and when, and how long it took (or "so far").
 - **Reachability by role** — people / with push / without / never opened the app, plus expandable name lists for "no push registration" and "never opened".
 - **Devices** — every registration with owner and last seen (±15 min, see SCHEMA §4).
 - **Rulebook searches**, **Push deliveries**, **Problems** — latest 100 of each, with tokens/cost/latency, delivery counts + FCM error codes, and expandable error context.
 
 **Behavior**
-- Everything is **live** except the roster (names, roles, last app-open), which loads once and on [Refresh roster] — it's ~1k reads a call. Leave the tab open rather than reloading: reloads are what cost reads.
+- Everything is **live** except the roster (names, roles, last app-open), which loads once and on [Refresh roster] — it's ~1k reads a call. The ticket history adds up to 500 reads per load and the notification list up to 100. Leave the tab open rather than reloading: reloads are what cost reads.
 - Totals are cumulative since `ops/stats` was created — delete that doc before the event to drop test traffic (SCHEMA §9).

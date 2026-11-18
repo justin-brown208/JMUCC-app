@@ -6,7 +6,10 @@ import { ROLES } from "../constants";
 import { Registration } from "./Registration";
 import {
   FEED_LIMIT,
+  HISTORY_LIMIT,
   fetchRoster,
+  useSentNotifications,
+  useTicketHistory,
   useActiveTickets,
   useDevices,
   useHeartbeat,
@@ -15,6 +18,7 @@ import {
   usePushes,
   useSearches,
   useStats,
+  type HistoryTicket,
   type Roster,
   type RosterPerson,
 } from "../ops";
@@ -155,6 +159,9 @@ function Ops({ profile }: { profile: Profile }) {
   const problems = useProblems();
   const tickets = useActiveTickets();
   const pending = usePendingSends();
+  const history = useTicketHistory();
+  const sent = useSentNotifications();
+  const [historyQueue, setHistoryQueue] = useState("");
 
   const byId = useMemo(
     () => new Map((roster?.people ?? []).map((p) => [p.id, p])),
@@ -364,6 +371,56 @@ function Ops({ profile }: { profile: Profile }) {
         </Section>
       </div>
 
+      <div className="ops-grid">
+        <Section
+          title="Queue workers"
+          note={`live · from the latest ${HISTORY_LIMIT} tickets · a claim later released isn't counted`}
+          error={history.error}
+        >
+          <WorkerTable people={people} tickets={history.data ?? []} ready={!!roster && !!history.data} />
+        </Section>
+
+        <Section title="Notifications sent" note={`live · latest ${FEED_LIMIT}`} error={sent.error}>
+          {(sent.data ?? []).length === 0 ? (
+            <Empty>No notifications sent yet.</Empty>
+          ) : (
+            <div className="ops-scroll">
+              <table className="ops-table">
+                <thead><tr><th>Sent</th><th>Title</th><th>To</th><th>Body</th></tr></thead>
+                <tbody>
+                  {(sent.data ?? []).map((n) => (
+                    <tr key={n.id}>
+                      <td title={n.sentAt?.toLocaleString()}>{clock(n.sentAt)}</td>
+                      <td>{n.title}{n.silent ? " · silent" : ""}</td>
+                      <td>{n.recipients}</td>
+                      <td className="ops-wrap">{n.body}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+      </div>
+
+      <Section title="Ticket history" note={`live · latest ${HISTORY_LIMIT}`} error={history.error}>
+        <div className="ops-filter">
+          {[{ id: "", label: "All" }, ...QUEUES].map((q) => (
+            <button
+              key={q.id}
+              className={"ops-btn" + (historyQueue === q.id ? " ops-btn--on" : "")}
+              onClick={() => setHistoryQueue(q.id)}
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
+        <TicketHistory
+          tickets={(history.data ?? []).filter((t) => !historyQueue || t.queue === historyQueue)}
+          now={now}
+        />
+      </Section>
+
       <Section title="Reachability by role" note="roster: on load / refresh · devices: live">
         {!roster ? (
           <Empty>Loading roster…</Empty>
@@ -520,6 +577,91 @@ function Ops({ profile }: { profile: Profile }) {
           </div>
         )}
       </Section>
+    </div>
+  );
+}
+
+// Per-worker tallies, derived from the loaded ticket window. "Claimed" counts
+// tickets whose claim still names them (held now or carried to resolve);
+// academic tickets have no claim step, so academic work shows as Resolved only.
+function WorkerTable(props: { people: RosterPerson[]; tickets: HistoryTicket[]; ready: boolean }) {
+  if (!props.ready) return <Empty>Loading…</Empty>;
+  const queuesOf = (p: RosterPerson) => QUEUES.filter((q) => q.works(p)).map((q) => q.id);
+  type Row = { id: string; name: string; queues: string[]; holding: number; claimed: number; resolved: number; resolveMs: number[] };
+  const rows = new Map<string, Row>();
+  const row = (id: string, fallbackName: string | null): Row => {
+    let r = rows.get(id);
+    if (!r) {
+      const p = props.people.find((x) => x.id === id);
+      r = { id, name: p?.fullName ?? fallbackName ?? id, queues: p ? queuesOf(p) : [], holding: 0, claimed: 0, resolved: 0, resolveMs: [] };
+      rows.set(id, r);
+    }
+    return r;
+  };
+  // Everyone who works a queue appears, even at zero — a zero is information.
+  for (const p of props.people) if (queuesOf(p).length > 0) row(p.id, p.fullName);
+  for (const t of props.tickets) {
+    if (t.claimedBy) {
+      const r = row(t.claimedBy, t.claimedByName);
+      r.claimed++;
+      if (t.status === "claimed") r.holding++;
+    }
+    if (t.status === "resolved" && t.closedBy) {
+      const r = row(t.closedBy, t.closedByName);
+      r.resolved++;
+      if (t.createdAt && t.closedAt) r.resolveMs.push(t.closedAt.getTime() - t.createdAt.getTime());
+    }
+  }
+  const sorted = [...rows.values()].sort((a, b) => b.resolved - a.resolved || b.claimed - a.claimed || a.name.localeCompare(b.name));
+  if (sorted.length === 0) return <Empty>Nobody works a queue.</Empty>;
+  return (
+    <table className="ops-table">
+      <thead><tr><th>Worker</th><th>Queues</th><th>Holding</th><th>Claimed</th><th>Resolved</th><th>Avg request→resolve</th></tr></thead>
+      <tbody>
+        {sorted.map((r) => (
+          <tr key={r.id}>
+            <td>{r.name}</td>
+            <td>{r.queues.join(", ") || "—"}</td>
+            <td>{r.holding || "—"}</td>
+            <td>{r.claimed}</td>
+            <td>{r.resolved}</td>
+            <td>{r.resolveMs.length ? dur(r.resolveMs.reduce((a, b) => a + b, 0) / r.resolveMs.length) : "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function TicketHistory(props: { tickets: HistoryTicket[]; now: number }) {
+  if (props.tickets.length === 0) return <Empty>No tickets.</Empty>;
+  return (
+    <div className="ops-scroll">
+      <table className="ops-table">
+        <thead>
+          <tr><th>Requested</th><th>Queue</th><th>Requester</th><th>Status</th><th>Claimed by</th><th>Closed by</th><th>Took</th></tr>
+        </thead>
+        <tbody>
+          {props.tickets.map((t) => {
+            const end = t.closedAt?.getTime() ?? props.now;
+            return (
+              <tr key={t.id}>
+                <td title={t.createdAt?.toLocaleString()}>{clock(t.createdAt)}</td>
+                <td>{t.queue}</td>
+                <td>{t.requesterName}</td>
+                <td>{t.status}</td>
+                <td title={t.claimedAt?.toLocaleString()}>
+                  {t.claimedByName ? `${t.claimedByName} · ${clock(t.claimedAt)}` : "—"}
+                </td>
+                <td title={t.closedAt?.toLocaleString()}>
+                  {t.status === "canceled" ? `canceled · ${clock(t.closedAt)}` : t.closedByName ? `${t.closedByName} · ${clock(t.closedAt)}` : "—"}
+                </td>
+                <td>{t.createdAt ? dur(end - t.createdAt.getTime()) + (t.closedAt ? "" : " so far") : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

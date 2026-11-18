@@ -111,6 +111,30 @@ export interface ActiveTicket {
   claimedAt: Date | null;
 }
 
+// A ticket in any state, for the history table and per-worker counts.
+export interface HistoryTicket {
+  id: string;
+  queue: string;
+  requesterName: string;
+  status: string;
+  createdAt: Date | null;
+  claimedBy: string | null;
+  claimedByName: string | null;
+  claimedAt: Date | null;
+  closedBy: string | null;
+  closedByName: string | null;
+  closedAt: Date | null;
+}
+
+export interface SentNotification {
+  id: string;
+  title: string;
+  body: string;
+  silent: boolean;
+  sentAt: Date | null;
+  recipients: number;
+}
+
 export interface PendingSend {
   id: string;
   title: string;
@@ -274,6 +298,41 @@ export const useActiveTickets = () =>
       createdAt: toDate(d.createdAt),
       claimedByName: d.claimedByName ?? null,
       claimedAt: toDate(d.claimedAt),
+    })
+  );
+
+// Ticket history window. Bigger than FEED_LIMIT because the per-worker counts
+// are derived from it — a whole event week fits, at one read per ticket per load.
+export const HISTORY_LIMIT = 500;
+
+export const useTicketHistory = () =>
+  useLiveQuery<HistoryTicket>(
+    query(collection(db, "requests"), orderBy("createdAt", "desc"), limit(HISTORY_LIMIT)),
+    (id, d) => ({
+      id,
+      queue: String(d.queue ?? ""),
+      requesterName: String(d.requesterName ?? ""),
+      status: String(d.status ?? ""),
+      createdAt: toDate(d.createdAt),
+      claimedBy: d.claimedBy ?? null,
+      claimedByName: d.claimedByName ?? null,
+      claimedAt: toDate(d.claimedAt),
+      closedBy: d.closedBy ?? null,
+      closedByName: d.closedByName ?? null,
+      closedAt: toDate(d.closedAt),
+    })
+  );
+
+export const useSentNotifications = () =>
+  useLiveQuery<SentNotification>(
+    query(collection(db, "announcements"), orderBy("sentAt", "desc"), limit(FEED_LIMIT)),
+    (id, d) => ({
+      id,
+      title: String(d.title ?? ""),
+      body: String(d.body ?? ""),
+      silent: d.silent === true,
+      sentAt: toDate(d.sentAt),
+      recipients: Array.isArray(d.recipientIds) ? d.recipientIds.length : 0,
     })
   );
 

@@ -40,6 +40,20 @@
   padding: 4px 10px;
   cursor: pointer;
 }
+/* Queue filter chips: outline-only per DESIGN.md — muted when off, gold on. */
+.ops-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ops-filter .ops-btn {
+  color: var(--text-muted);
+  border-color: var(--text-muted);
+}
+.ops-filter .ops-btn--on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 .ops-btn:disabled {
   opacity: 0.5;
   cursor: default;
