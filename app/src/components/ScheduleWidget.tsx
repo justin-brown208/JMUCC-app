@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Profile } from "../auth";
 import { loadSchedule, cachedSchedule, type ScheduleEvent } from "../schedule";
 
@@ -6,7 +6,21 @@ import { loadSchedule, cachedSchedule, type ScheduleEvent } from "../schedule";
  * Home schedule widget (PAGES.md §2): the current/next event shown large, a few
  * later ones smaller beneath, and a View Full Week button. Paints instantly from
  * the cached schedule, then refreshes from Google Calendar in the background.
+ *
+ * Admins get a "See as" control: pick a role group + team letter and the widget
+ * shows the schedule that person would see (same calendar resolution, a stand-
+ * in profile). Previews skip the cache, so the admin's own schedule is intact.
  */
+
+// One representative role per calendar group — calendarIdsFor maps every
+// volunteer role to the shared Volunteers calendar, so one stands in for all.
+const SEE_AS = [
+  { value: "Delegate", label: "Delegate" },
+  { value: "Coach", label: "Coach" },
+  { value: "Organizer", label: "Organizer" },
+  { value: "General Volunteer", label: "Volunteer" },
+];
+const TEAMS = ["A", "B", "C", "D"];
 export function ScheduleWidget({
   profile,
   onViewFullWeek,
@@ -14,23 +28,90 @@ export function ScheduleWidget({
   profile: Profile;
   onViewFullWeek: () => void;
 }) {
-  const [events, setEvents] = useState<ScheduleEvent[]>(
-    () => cachedSchedule() ?? []
+  // Instant paint from the last fetch of my own schedule (read once).
+  const [cached] = useState<ScheduleEvent[]>(() => cachedSchedule() ?? []);
+  const [asRole, setAsRole] = useState(""); // "" = myself
+  const [asTeam, setAsTeam] = useState(""); // "" = no team
+  const previewing = profile.isAdmin && asRole !== "";
+  const viewed = useMemo<Profile>(
+    () =>
+      previewing ?
+        { ...profile, role: asRole, teamLetter: asTeam || null } :
+        profile,
+    [profile, previewing, asRole, asTeam]
   );
-  const [loaded, setLoaded] = useState(false);
+
+  // Keyed by what's being shown, so a stale fetch for a previous choice can't
+  // land on top of the current one.
+  const viewKey = previewing ? `${asRole}|${asTeam}` : "me";
+  const [result, setResult] = useState<{ key: string; events: ScheduleEvent[] } | null>(null);
 
   useEffect(() => {
-    loadSchedule(profile)
-      .then(setEvents)
-      .catch((e) => console.warn("Schedule load failed:", e))
-      .finally(() => setLoaded(true));
-  }, [profile]);
+    let live = true;
+    loadSchedule(viewed, { cache: !previewing })
+      .then((ev) => live && setResult({ key: viewKey, events: ev }))
+      .catch((e) => {
+        console.warn("Schedule load failed:", e);
+        if (live) setResult({ key: viewKey, events: [] });
+      });
+    return () => {
+      live = false;
+    };
+  }, [viewed, previewing, viewKey]);
+
+  const loaded = result?.key === viewKey;
+  const events: ScheduleEvent[] = loaded ?
+    result.events :
+    previewing ?
+      [] :
+      cached;
 
   const [featured, ...rest] = events;
   const upcoming = rest.slice(0, 4);
 
   return (
     <div className="cal">
+      {profile.isAdmin && (
+        <div className="cal-seeas">
+          <span className="label">See as</span>
+          <div className="cal-seeas-row">
+            <div className="select-wrap">
+              <select
+                className="select"
+                aria-label="See the schedule as role"
+                value={asRole}
+                onChange={(e) => setAsRole(e.target.value)}
+              >
+                <option value="">Me</option>
+                {SEE_AS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <span className="select-caret">▾</span>
+            </div>
+            <div className="select-wrap">
+              <select
+                className="select"
+                aria-label="See the schedule as team"
+                value={asTeam}
+                disabled={!previewing}
+                onChange={(e) => setAsTeam(e.target.value)}
+              >
+                <option value="">No team</option>
+                {TEAMS.map((t) => (
+                  <option key={t} value={t}>
+                    Team {t}
+                  </option>
+                ))}
+              </select>
+              <span className="select-caret">▾</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {featured ? (
         <>
           <div className="cal-featured">

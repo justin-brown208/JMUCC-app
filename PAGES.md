@@ -32,6 +32,7 @@
   - Smaller entries for events after it
   - Widget-style, not a traditional month/week calendar view
   - **[View Full Week]** → §11 — opens the whole-week schedule as a zoomable image
+  - **See as** *(admins only)*: role-group picker (Me / Delegate / Coach / Organizer / Volunteer) + team picker (No team / A–D) above the widget — shows the schedule that person would see, so the OC can check what each group gets. Preview only: it never replaces the admin's own cached schedule
 - **Latest message box** — shows the full content of the single most recent announcement
 - **Requests zone** *(only for eligible submitters — coaches + volunteer roles)*:
   - One button **per queue the user may submit to**, labeled by intent:

@@ -717,6 +717,20 @@ body::before {
   flex-direction: column;
   gap: 16px;
 }
+/* Admin-only "See as" pickers above the widget: role + team side by side. */
+.cal-seeas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cal-seeas-row {
+  display: flex;
+  gap: 8px;
+}
+.cal-seeas .select:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 /* Featured (current/next) event — the hero (DESIGN.md component F). Same
    gray-outlined card as the later entries, sized up for the hero content. */
 .cal-featured {

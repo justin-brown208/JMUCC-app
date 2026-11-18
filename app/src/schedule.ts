@@ -117,13 +117,16 @@ export function cachedSchedule(): ScheduleEvent[] | null {
  * Fetch upcoming events across the person's calendars, merged and sorted by
  * start time. No-ops (returns []) until the API key + calendar IDs are filled.
  * Result is cached to localStorage so cachedSchedule() can paint instantly on
- * the next visit (stale-while-revalidate).
+ * the next visit (stale-while-revalidate) — unless `cache: false`.
  */
-export async function loadSchedule(profile: Profile): Promise<ScheduleEvent[]> {
+export async function loadSchedule(
+  profile: Profile,
+  { cache = true }: { cache?: boolean } = {}
+): Promise<ScheduleEvent[]> {
   const ids = calendarIdsFor(profile);
   if (!CALENDAR_API_KEY || PLACEHOLDER.test(CALENDAR_API_KEY) || ids.length === 0) {
     // Nothing configured: clear the cache too, or the last result paints forever.
-    localStorage.removeItem(CACHE_KEY);
+    if (cache) localStorage.removeItem(CACHE_KEY);
     return [];
   }
 
@@ -140,6 +143,8 @@ export async function loadSchedule(profile: Profile): Promise<ScheduleEvent[]> {
   const merged = perCalendar
     .flat()
     .sort((a, b) => a.start.getTime() - b.start.getTime());
-  localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
+  // A "See as…" preview passes cache: false — it must never replace the
+  // viewer's own schedule, which is what paints on their next visit.
+  if (cache) localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
   return merged;
 }
